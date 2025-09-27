@@ -74,6 +74,65 @@ app.component('RecycleScroller', VueVirtualScroller.RecycleScroller)
 
 # Usage
 
+## Modern Vue 3 Features
+
+This version of `vue-virtual-scroller` has been enhanced with modern Vue 3 features and optimizations:
+
+### Key Improvements
+
+- **Modern Vue 3 Composition API**: All components now use `<script setup lang="ts">` with full TypeScript support
+- **@vueuse/core Integration**: Leverages battle-tested utilities for better performance and reliability
+- **useTemplateRef**: Enhanced type safety for template references
+- **Advanced Slot Ref Management**: Automatic memory cleanup with WeakMap support
+- **Performance Optimizations**: RAF scheduling, scroll debouncing, and idle callback support
+- **Enhanced SSR Compatibility**: Comprehensive server-side rendering support with @vueuse/core patterns
+- **Better TypeScript Support**: Comprehensive type definitions and improved IDE experience
+
+### Modern Composables
+
+The library now exports enhanced composables for advanced use cases:
+
+```typescript
+import {
+  useVirtualScrollCore,
+  useSlotRefManager,
+  useVirtualScrollPerformance,
+  useSSRSafeEnhanced
+} from 'vue-virtual-scroller'
+
+// Advanced slot management with automatic cleanup
+const slotManager = useSlotRefManager({
+  enableWeakMap: true,
+  maxSize: 1000
+})
+
+// Performance monitoring and optimization
+const performance = useVirtualScrollPerformance({
+  enableScrollDebounce: true,
+  scrollDebounceMs: 16,
+  enableRequestIdleCallback: true
+})
+
+// Enhanced SSR utilities
+const { useSSRSafeStorage, useSSRSafeViewport } = useSSRSafeEnhanced()
+```
+
+### Performance Monitoring
+
+All components now expose performance monitoring methods:
+
+```typescript
+// Access performance stats
+const scroller = ref()
+const stats = scroller.value.getPerformanceStats()
+
+// Monitor slot usage
+const slotStats = scroller.value.getSlotStats()
+
+// Reset metrics
+scroller.value.resetPerformanceMetrics()
+```
+
 There are several components provided by `vue-virtual-scroller`:
 
 [RecycleScroller](#recyclescroller) is a component that only renders the visible items in your list. It also re-uses components and dom elements to be as efficient and performant as possible.
@@ -464,6 +523,92 @@ export default {
 - `idProp` (default: `vm => vm.item.id`): field name on the component (for example: `'id'`) or function returning the id.
 
 ---
+
+## Migration Guide
+
+### From v2.0.0-beta.8 to v2.0.0-modern
+
+This version includes significant improvements and modernizations. Here's what you need to know:
+
+#### Breaking Changes
+
+1. **TypeScript is now first-class**: All components are written in TypeScript with full type definitions
+2. **@vueuse/core dependency**: The library now depends on @vueuse/core for enhanced functionality
+3. **Composable API changes**: Some internal composables have been enhanced with @vueuse/core integration
+
+#### Non-Breaking Changes
+
+1. **Same component API**: All existing props and events remain unchanged
+2. **Enhanced performance**: Better scroll handling and memory management
+3. **Improved SSR**: Better server-side rendering compatibility
+4. **Performance monitoring**: New methods for monitoring performance metrics
+
+#### New Features
+
+1. **useTemplateRef integration**: Better type safety for template references
+2. **Advanced slot management**: Automatic memory cleanup with WeakMap support
+3. **Performance optimizations**: RAF scheduling and idle callback support
+4. **Enhanced SSR utilities**: Comprehensive server-side rendering support
+
+#### Code Examples
+
+**Before:**
+```vue
+<template>
+  <RecycleScroller
+    ref="scroller"
+    :items="items"
+    :item-size="50"
+    key-field="id"
+  >
+    <template #default="{ item }">
+      <div>{{ item.name }}</div>
+    </template>
+  </RecycleScroller>
+</template>
+
+<script>
+export default {
+  data() {
+    return {
+      items: []
+    }
+  }
+}
+</script>
+```
+
+**After (Enhanced with TypeScript):**
+```vue
+<template>
+  <RecycleScroller
+    ref="scrollerRef"
+    :items="items"
+    :item-size="50"
+    key-field="id"
+  >
+    <template #default="{ item }">
+      <div>{{ item.name }}</div>
+    </template>
+  </RecycleScroller>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { RecycleScroller } from 'vue-virtual-scroller'
+
+interface Item {
+  id: string
+  name: string
+}
+
+const items = ref<Item[]>([])
+const scrollerRef = ref()
+
+// Access performance metrics
+const performanceStats = scrollerRef.value?.getPerformanceStats()
+</script>
+```
 
 ## License
 

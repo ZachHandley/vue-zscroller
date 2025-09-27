@@ -1,5 +1,3 @@
-<!-- Avoir re-renders of slots -->
-
 <template>
   <component
     :is="itemTag"
@@ -13,11 +11,23 @@
   </component>
 </template>
 
-<script>
-export default {
-  props: {
-    view: Object,
-    itemTag: String,
+<script setup>
+const props = defineProps({
+  view: {
+    type: Object,
+    required: true
   },
-}
+  itemTag: {
+    type: String,
+    default: 'div'
+  }
+})
 </script>
+
+<style scoped>
+.vue-recycle-scroller__item-view {
+  box-sizing: border-box;
+  backface-visibility: hidden;
+  contain: layout style paint;
+}
+</style>

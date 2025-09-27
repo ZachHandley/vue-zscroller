@@ -1,15 +1,27 @@
 <template>
   <RecycleScroller
-    ref="scroller"
+    ref="scrollerRef"
     :items="itemsWithSize"
     :min-item-size="minItemSize"
     :direction="direction"
-    key-field="id"
+    :key-field="keyField"
     :list-tag="listTag"
     :item-tag="itemTag"
+    :page-mode="pageMode"
+    :prerender="prerender"
+    :buffer="buffer"
+    :emit-update="emitUpdate"
+    :update-interval="updateInterval"
+    :list-class="listClass"
+    :item-class="itemClass"
+    :disable-transform="disableTransform"
+    :skip-hover="skipHover"
     v-bind="$attrs"
-    @resize="onScrollerResize"
-    @visible="onScrollerVisible"
+    @resize="handleScrollerResize"
+    @visible="handleScrollerVisible"
+    @update="handleScrollerUpdate"
+    @scroll-start="handleScrollStart"
+    @scroll-end="handleScrollEnd"
   >
     <template #default="{ item: itemWithSize, index, active }">
       <slot
@@ -21,234 +33,183 @@
         }"
       />
     </template>
-    <template
-      v-if="$slots.before"
-      #before
-    >
+
+    <template #before>
       <slot name="before" />
     </template>
-    <template
-      v-if="$slots.after"
-      #after
-    >
+
+    <template #after>
       <slot name="after" />
     </template>
+
     <template #empty>
       <slot name="empty" />
     </template>
   </RecycleScroller>
 </template>
 
-<script>
-import mitt from 'mitt'
+<script setup>
+import { computed, ref, watch, nextTick, onMounted, onUnmounted, provide, useTemplateRef } from 'vue'
 import RecycleScroller from './RecycleScroller.vue'
-import { props, simpleArray } from './common'
+import DynamicScrollerItem from './DynamicScrollerItem.vue'
+import { useSSRSafe } from '../composables/useSSRSafe'
 
-export default {
-  name: 'DynamicScroller',
+const props = withDefaults(defineProps(), {
+  keyField: 'id',
+  direction: 'vertical',
+  pageMode: false,
+  prerender: 0,
+  buffer: 200,
+  emitUpdate: false,
+  updateInterval: 0,
+  listClass: '',
+  itemClass: '',
+  listTag: 'div',
+  itemTag: 'div',
+  disableTransform: false,
+  skipHover: false
+})
 
-  components: {
-    RecycleScroller,
-  },
+const emit = defineEmits(['resize', 'visible', 'update', 'scroll-start', 'scroll-end'])
 
-  provide () {
-    if (typeof ResizeObserver !== 'undefined') {
-      this.$_resizeObserver = new ResizeObserver(entries => {
-        requestAnimationFrame(() => {
-          if (!Array.isArray(entries)) {
-            return
-          }
-          for (const entry of entries) {
-            if (entry.target && entry.target.$_vs_onResize) {
-              let width, height
-              if (entry.borderBoxSize) {
-                const resizeObserverSize = entry.borderBoxSize[0]
-                width = resizeObserverSize.inlineSize
-                height = resizeObserverSize.blockSize
-              } else {
-                // @TODO remove when contentRect is deprecated
-                width = entry.contentRect.width
-                height = entry.contentRect.height
-              }
-              entry.target.$_vs_onResize(entry.target.$_vs_id, width, height)
-            }
-          }
-        })
-      })
-    }
+// Refs using useTemplateRef for better type safety
+const scrollerRef = useTemplateRef('scrollerRef')
+
+// SSR safety
+const { isClient } = useSSRSafe()
+
+// State
+const items = ref(props.items)
+const sizeStore = ref(new Map())
+
+// Computed
+const itemsWithSize = computed(() => {
+  return items.value.map(item => {
+    const key = item[props.keyField] || item.id
+    const size = sizeStore.value.get(key) || props.minItemSize
 
     return {
-      vscrollData: this.vscrollData,
-      vscrollParent: this,
-      vscrollResizeObserver: this.$_resizeObserver,
+      ...item,
+      size
     }
-  },
+  })
+})
 
-  inheritAttrs: false,
+// Methods
+const updateItemSize = (key, size) => {
+  const currentSize = sizeStore.value.get(key)
 
-  props: {
-    ...props,
+  if (currentSize !== size) {
+    sizeStore.value.set(key, size)
 
-    minItemSize: {
-      type: [Number, String],
-      required: true,
-    },
-  },
-
-  emits: [
-    'resize',
-    'visible',
-  ],
-
-  data () {
-    return {
-      vscrollData: {
-        active: true,
-        sizes: {},
-        keyField: this.keyField,
-        simpleArray: false,
-      },
+    if (props.emitUpdate) {
+      emit('resize', size)
     }
-  },
 
-  computed: {
-    simpleArray,
-
-    itemsWithSize () {
-      const result = []
-      const { items, keyField, simpleArray } = this
-      const sizes = this.vscrollData.sizes
-      const l = items.length
-      for (let i = 0; i < l; i++) {
-        const item = items[i]
-        const id = simpleArray ? i : item[keyField]
-        let size = sizes[id]
-        if (typeof size === 'undefined' && !this.$_undefinedMap[id]) {
-          size = 0
-        }
-        result.push({
-          item,
-          id,
-          size,
-        })
+    // Trigger scroller update
+    nextTick(() => {
+      if (scrollerRef.value) {
+        scrollerRef.value.updateVisibleItems()
       }
-      return result
-    },
-  },
-
-  watch: {
-    items () {
-      this.forceUpdate()
-    },
-
-    simpleArray: {
-      handler (value) {
-        this.vscrollData.simpleArray = value
-      },
-      immediate: true,
-    },
-
-    direction (value) {
-      this.forceUpdate(true)
-    },
-
-    itemsWithSize (next, prev) {
-      const scrollTop = this.$el.scrollTop
-
-      // Calculate total diff between prev and next sizes
-      // over current scroll top. Then add it to scrollTop to
-      // avoid jumping the contents that the user is seeing.
-      let prevActiveTop = 0; let activeTop = 0
-      const length = Math.min(next.length, prev.length)
-      for (let i = 0; i < length; i++) {
-        if (prevActiveTop >= scrollTop) {
-          break
-        }
-        prevActiveTop += prev[i].size || this.minItemSize
-        activeTop += next[i].size || this.minItemSize
-      }
-      const offset = activeTop - prevActiveTop
-
-      if (offset === 0) {
-        return
-      }
-
-      this.$el.scrollTop += offset
-    },
-  },
-
-  beforeCreate () {
-    this.$_updates = []
-    this.$_undefinedSizes = 0
-    this.$_undefinedMap = {}
-    this.$_events = mitt()
-  },
-
-  activated () {
-    this.vscrollData.active = true
-  },
-
-  deactivated () {
-    this.vscrollData.active = false
-  },
-
-  unmounted () {
-    this.$_events.all.clear()
-  },
-
-  methods: {
-    onScrollerResize () {
-      const scroller = this.$refs.scroller
-      if (scroller) {
-        this.forceUpdate()
-      }
-      this.$emit('resize')
-    },
-
-    onScrollerVisible () {
-      this.$_events.emit('vscroll:update', { force: false })
-      this.$emit('visible')
-    },
-
-    forceUpdate (clear = false) {
-      if (clear || this.simpleArray) {
-        this.vscrollData.sizes = {}
-      }
-      this.$_events.emit('vscroll:update', { force: true })
-    },
-
-    scrollToItem (index) {
-      const scroller = this.$refs.scroller
-      if (scroller) scroller.scrollToItem(index)
-    },
-
-    getItemSize (item, index = undefined) {
-      const id = this.simpleArray ? (index != null ? index : this.items.indexOf(item)) : item[this.keyField]
-      return this.vscrollData.sizes[id] || 0
-    },
-
-    scrollToBottom () {
-      if (this.$_scrollingToBottom) return
-      this.$_scrollingToBottom = true
-      const el = this.$el
-      // Item is inserted to the DOM
-      this.$nextTick(() => {
-        el.scrollTop = el.scrollHeight + 5000
-        // Item sizes are computed
-        const cb = () => {
-          el.scrollTop = el.scrollHeight + 5000
-          requestAnimationFrame(() => {
-            el.scrollTop = el.scrollHeight + 5000
-            if (this.$_undefinedSizes === 0) {
-              this.$_scrollingToBottom = false
-            } else {
-              requestAnimationFrame(cb)
-            }
-          })
-        }
-        requestAnimationFrame(cb)
-      })
-    },
-  },
+    })
+  }
 }
+
+const getItemSize = (key) => {
+  return sizeStore.value.get(key) || props.minItemSize
+}
+
+const removeItemSize = (key) => {
+  sizeStore.value.delete(key)
+}
+
+const resetSizes = () => {
+  sizeStore.value.clear()
+}
+
+// Event handlers
+const handleScrollerResize = (event) => {
+  emit('resize', event)
+}
+
+const handleScrollerVisible = (event) => {
+  emit('visible', event)
+}
+
+const handleScrollerUpdate = (event) => {
+  emit('update', event)
+}
+
+const handleScrollStart = () => {
+  emit('scroll-start')
+}
+
+const handleScrollEnd = () => {
+  emit('scroll-end')
+}
+
+// Watch for items changes
+watch(() => props.items, (newItems) => {
+  items.value = newItems
+
+  // Clean up sizes for items that no longer exist
+  const currentKeys = new Set(newItems.map(item => item[props.keyField] || item.id))
+  const keysToDelete = []
+
+  sizeStore.value.forEach((_, key) => {
+    if (!currentKeys.has(key)) {
+      keysToDelete.push(key.toString())
+    }
+  })
+
+  keysToDelete.forEach(key => {
+    sizeStore.value.delete(key)
+  })
+}, { deep: true })
+
+// Lifecycle hooks
+onMounted(() => {
+  if (isClient.value) {
+    // Initialize sizes for existing items
+    items.value.forEach(item => {
+      const key = item[props.keyField] || item.id
+      if (!sizeStore.value.has(key)) {
+        sizeStore.value.set(key, props.minItemSize)
+      }
+    })
+  }
+})
+
+// Expose public methods
+defineExpose({
+  scrollerRef,
+  updateItemSize,
+  getItemSize,
+  removeItemSize,
+  resetSizes,
+  scrollToItem: (index, alignment) => {
+    scrollerRef.value?.scrollToItem(index, alignment)
+  },
+  scrollToPosition: (position) => {
+    scrollerRef.value?.scrollToPosition(position)
+  },
+  updateVisibleItems: () => {
+    scrollerRef.value?.updateVisibleItems()
+  },
+  reset: () => {
+    resetSizes()
+    scrollerRef.value?.reset()
+  }
+})
+
+// Provide context for DynamicScrollerItem
+provide('dynamicScrollerContext', {
+  updateItemSize,
+  getItemSize,
+  removeItemSize
+})
 </script>
+
+<style scoped>
+/* DynamicScroller inherits styles from RecycleScroller */
+</style>
