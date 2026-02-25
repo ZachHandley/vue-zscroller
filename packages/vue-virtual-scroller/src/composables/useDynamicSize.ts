@@ -1,117 +1,92 @@
-import { ref, computed, watch, nextTick, type Ref } from 'vue'
-import { useElementSize } from './useElementSize'
+import { ref, type Ref } from 'vue'
 import { useSSRSafe } from './useSSRSafe'
-import type { UseDynamicSizeOptions, UseDynamicSizeReturn } from '../types/composables'
+import type { UseDynamicSizeReturn } from '../types/composables'
+
+export interface SharedResizeObserverLike {
+  observe(el: Element, callback: (entry: ResizeObserverEntry) => void): void
+  unobserve(el: Element): void
+}
+
+export interface UseDynamicSizeOptions {
+  minItemSize: number
+  direction?: 'vertical' | 'horizontal'
+  sharedObserver?: SharedResizeObserverLike | null
+  onSizeChange?: (size: number) => void
+}
 
 export function useDynamicSize(
   options: UseDynamicSizeOptions
 ): UseDynamicSizeReturn {
   const {
     minItemSize,
-    sizeDependencies = ref([]),
-    watchData = false,
-    active = ref(true)
+    direction = 'vertical',
+    sharedObserver = null,
+    onSizeChange
   } = options
 
-  const { isClient, onClientSide } = useSSRSafe()
+  const { isClient } = useSSRSafe()
 
   // State
   const element = ref<HTMLElement | null>(null)
-  const isMeasured = ref(false)
+  const currentSize = ref(minItemSize)
 
-  // Use @vueuse/core's useElementSize for better size tracking
-  const { width, height } = useElementSize(element, { width: 0, height: 0 })
+  const hasSizeChanged = (oldSize: number, newSize: number): boolean => {
+    return Math.abs(oldSize - newSize) > 0.5
+  }
 
-  // Computed item size based on orientation (default to vertical)
-  const itemSize = computed(() => {
-    const size = height.value // Default to height for vertical scrolling
-    return Math.max(size, minItemSize)
-  })
-
-  // Watch size dependencies for changes
-  watch(
-    sizeDependencies,
-    () => {
-      if (active.value && isMeasured.value && isClient.value) {
-        updateSize()
-      }
-    },
-    { deep: true }
-  )
-
-  // Watch active state
-  watch(active, (newActive) => {
-    if (newActive && element.value && isClient.value) {
-      // Size observation handled automatically by useElementSize
-      nextTick(() => {
-        updateSize()
-      })
-    }
-  })
-
-  // Watch for data changes if enabled
-  watch(() => options, () => {
-    if (watchData && active.value && isClient.value) {
-      nextTick(() => {
-        updateSize()
-      })
-    }
-  }, { deep: true })
-
-  // Methods
   const measureSize = (): number => {
     if (!element.value || !isClient.value) {
       return minItemSize
     }
-
     const rect = element.value.getBoundingClientRect()
-    const size = rect.height // Default to height for vertical scrolling
-
-    // Ensure minimum size
+    const size = direction === 'horizontal' ? rect.width : rect.height
     return Math.max(size, minItemSize)
   }
 
-  const updateSize = () => {
-    if (!active.value || !isClient.value) return
-
-    nextTick(() => {
-      const newSize = measureSize()
-
-      if (hasSizeChanged(itemSize.value, newSize)) {
-        isMeasured.value = true
-      }
-    })
+  const measureAndUpdate = () => {
+    if (!isClient.value) return
+    const newSize = measureSize()
+    if (hasSizeChanged(currentSize.value, newSize)) {
+      currentSize.value = newSize
+      onSizeChange?.(newSize)
+    }
   }
 
-  const hasSizeChanged = (oldSize: number, newSize: number): boolean => {
-    // Consider size changed if difference is more than 0.5px
-    return Math.abs(oldSize - newSize) > 0.5
+  const handleResizeEntry = (entry: ResizeObserverEntry) => {
+    const size = direction === 'horizontal'
+      ? entry.contentRect.width
+      : entry.contentRect.height
+    const resolvedSize = Math.max(size, minItemSize)
+    if (hasSizeChanged(currentSize.value, resolvedSize)) {
+      currentSize.value = resolvedSize
+      onSizeChange?.(resolvedSize)
+    }
   }
 
   const setElement = (el: HTMLElement | null) => {
+    // Unobserve old element
+    if (element.value && sharedObserver) {
+      sharedObserver.unobserve(element.value)
+    }
     element.value = el
-
-    if (el && active.value && isClient.value) {
-      nextTick(() => {
-        updateSize()
-      })
+    // Observe new element
+    if (el && sharedObserver) {
+      sharedObserver.observe(el, handleResizeEntry)
     }
   }
 
-  // Setup
-  onClientSide(() => {
-    if (element.value && active.value) {
-      nextTick(() => {
-        updateSize()
-      })
-    }
-  })
+  // Allow callers to sync currentSize after an external measurement,
+  // preventing the SharedResizeObserver from re-reporting the same value.
+  const setCurrentSize = (size: number) => {
+    currentSize.value = size
+  }
 
   return {
-    itemSize,
+    itemSize: currentSize as Ref<number>,
     measureSize,
-    updateSize,
+    updateSize: measureAndUpdate,
     hasSizeChanged,
-    setElement
+    setElement,
+    setCurrentSize
   }
 }

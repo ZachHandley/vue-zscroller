@@ -43,7 +43,7 @@
         > buffer
       </span>
       <span>
-        <button @mousedown="$refs.scroller.scrollToItem(scrollTo)">Scroll To: </button>
+        <button @mousedown="scroller?.scrollToItem(scrollTo)">Scroll To: </button>
         <input
           v-model.number="scrollTo"
           type="number"
@@ -112,112 +112,107 @@
   </div>
 </template>
 
-<script>
-import { getData, addItem } from '../data'
-
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, nextTick, type Ref } from 'vue'
+import { getData, addItem as addDataItem } from '../data'
+import type { DataItem } from '../data'
 import Person from './Person.vue'
 
-export default {
-  components: {
-    Person,
-  },
-
-  data: () => ({
-    items: [],
-    count: 10000,
-    renderScroller: true,
-    showScroller: true,
-    scopedSlots: false,
-    buffer: 200,
-    poolSize: 2000,
-    enableLetters: true,
-    pageMode: false,
-    pageModeFullPage: true,
-    scrollTo: 100,
-    updateParts: { viewStartIdx: 0, viewEndIdx: 0, visibleStartIdx: 0, visibleEndIdx: 0 },
-    showMessageBeforeItems: true,
-  }),
-
-  computed: {
-    countInput: {
-      get () {
-        return this.count
-      },
-      set (val) {
-        if (val > 500000) {
-          val = 500000
-        } else if (val < 0) {
-          val = 0
-        }
-        this.count = val
-      },
-    },
-
-    itemHeight () {
-      return this.enableLetters ? null : 50
-    },
-
-    list () {
-      return this.items.map(
-        item => Object.assign({}, {
-          random: Math.random(),
-        }, item),
-      )
-    },
-  },
-
-  watch: {
-    count () {
-      this.generateItems()
-    },
-    enableLetters () {
-      this.generateItems()
-    },
-  },
-
-  mounted () {
-    this.$nextTick(this.generateItems)
-    window.scroller = this.$refs.scroller
-  },
-
-  methods: {
-    generateItems () {
-      console.log('Generating ' + this.count + ' items...')
-      const time = Date.now()
-      const items = getData(this.count, this.enableLetters)
-      console.log('Generated ' + items.length + ' in ' + (Date.now() - time) + 'ms')
-      this._dirty = true
-      this.items = items
-    },
-
-    addItem () {
-      addItem(this.items)
-    },
-
-    onUpdate (viewStartIndex, viewEndIndex, visibleStartIndex, visibleEndIndex) {
-      this.updateParts.viewStartIdx = viewStartIndex
-      this.updateParts.viewEndIdx = viewEndIndex
-      this.updateParts.visibleStartIdx = visibleStartIndex
-      this.updateParts.visibleEndIdx = visibleEndIndex
-    },
-
-    onVisible () {
-      console.log('visible')
-    },
-
-    onHidden () {
-      console.log('hidden')
-    },
-
-    onScrollStart () {
-      console.log('scroll start')
-    },
-
-    onScrollEnd () {
-      console.log('scroll end')
-    },
-  },
+interface UpdateParts {
+  viewStartIdx: number
+  viewEndIdx: number
+  visibleStartIdx: number
+  visibleEndIdx: number
 }
+
+const items = ref<DataItem[]>([])
+const count = ref(10000)
+const renderScroller = ref(true)
+const showScroller = ref(true)
+const buffer = ref(200)
+const enableLetters = ref(true)
+const pageMode = ref(false)
+const pageModeFullPage = ref(true)
+const scrollTo = ref(100)
+const updateParts = ref<UpdateParts>({
+  viewStartIdx: 0,
+  viewEndIdx: 0,
+  visibleStartIdx: 0,
+  visibleEndIdx: 0
+})
+const showMessageBeforeItems = ref(true)
+
+const scroller: Ref<any> = ref(null)
+
+const countInput = computed({
+  get: () => count.value,
+  set: (val: number) => {
+    if (val > 500000) {
+      val = 500000
+    } else if (val < 0) {
+      val = 0
+    }
+    count.value = val
+  }
+})
+
+const itemHeight = computed(() => enableLetters.value ? null : 50)
+
+const list = computed(() => {
+  return items.value.map(
+    (item: DataItem) => Object.assign({}, item),
+  )
+})
+
+function generateItems() {
+  console.log('Generating ' + count.value + ' items...')
+  const time = Date.now()
+  const newItems = getData(count.value, enableLetters.value)
+  console.log('Generated ' + newItems.length + ' in ' + (Date.now() - time) + 'ms')
+  items.value = newItems
+}
+
+function addItem() {
+  addDataItem(items.value)
+}
+
+function onUpdate(event: { startIndex: number, endIndex: number, visibleStartIndex: number, visibleEndIndex: number }) {
+  updateParts.value = {
+    viewStartIdx: event.startIndex,
+    viewEndIdx: event.endIndex,
+    visibleStartIdx: event.visibleStartIndex,
+    visibleEndIdx: event.visibleEndIndex
+  }
+}
+
+function onVisible() {
+  console.log('visible')
+}
+
+function onHidden() {
+  console.log('hidden')
+}
+
+function onScrollStart() {
+  console.log('scroll start')
+}
+
+function onScrollEnd() {
+  console.log('scroll end')
+}
+
+watch(count, () => {
+  generateItems()
+})
+
+watch(enableLetters, () => {
+  generateItems()
+})
+
+onMounted(() => {
+  nextTick(generateItems)
+  ;(window as any).scroller = scroller.value
+})
 </script>
 
 <style scoped>
@@ -240,7 +235,7 @@ export default {
 }
 
 .content {
-  flex: 100% 1 1;
+  flex: 1 1 0;
   border: solid 1px #42b983;
   position: relative;
 }

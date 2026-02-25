@@ -2,28 +2,20 @@ import type { App } from 'vue'
 import DynamicScroller from './components/DynamicScroller.vue'
 import DynamicScrollerItem from './components/DynamicScrollerItem.vue'
 import RecycleScroller from './components/RecycleScroller.vue'
+import GridScroller from './components/GridScroller.vue'
 import config from './config'
 
 // Composables
 export { useSSRSafe } from './composables/useSSRSafe'
-export { useResizeObserver } from './composables/useResizeObserver'
-export { useIntersectionObserver } from './composables/useIntersectionObserver'
-export { useDebounceFn, useThrottleFn } from './composables/useDebounceFn'
 export { useIdState } from './composables/useIdState'
-export { useVirtualScrollCore } from './composables/useVirtualScrollCore'
 export { useDynamicSize } from './composables/useDynamicSize'
-export { useSlotRefManager } from './composables/useSlotRefManager'
-export { useVirtualScrollPerformance } from './composables/useVirtualScrollPerformance'
+export { useGridLayout } from './composables/useGridLayout'
 export { useSSRSafeEnhanced } from './composables/useSSRSafeEnhanced'
-// Custom @vueuse/core replacements
-export { useElementSize } from './composables/useElementSize'
-export { useScroll } from './composables/useScroll'
-export { useScrollLock } from './composables/useScrollLock'
-export { useLocalStorage, useSessionStorage, useStorage } from './composables/useStorage'
-export { useRafFn } from './composables/useRafFn'
+export { useAsyncItems, useItemValidation } from './composables/useAsyncItems'
+// @vueuse/core utilities (re-exported for convenience)
+export { useScrollLock, useLocalStorage, useSessionStorage, useStorage, useRafFn, useDebounceFn, useThrottleFn, useIntersectionObserver, useResizeObserver } from '@vueuse/core'
 
-// IdState composable (backward compatibility)
-export { default as useIdStateLegacy } from './mixins/IdState'
+// IdState is now available as a composable via useIdState export
 
 // Types
 export type * from './types'
@@ -32,14 +24,16 @@ export type * from './types'
 export {
   DynamicScroller,
   DynamicScrollerItem,
-  RecycleScroller
+  RecycleScroller,
+  GridScroller
 }
 
 // Component types
 export type {
   RecycleScrollerComponent,
   DynamicScrollerComponent,
-  DynamicScrollerItemComponent
+  DynamicScrollerItemComponent,
+  GridScrollerComponent
 } from './types/components'
 
 function registerComponents(app: App, prefix: string = '') {
@@ -49,6 +43,8 @@ function registerComponents(app: App, prefix: string = '') {
   app.component(`${prefix}DynamicScroller`, DynamicScroller)
   app.component(`${prefix}dynamic-scroller-item`, DynamicScrollerItem)
   app.component(`${prefix}DynamicScrollerItem`, DynamicScrollerItem)
+  app.component(`${prefix}grid-scroller`, GridScroller)
+  app.component(`${prefix}GridScroller`, GridScroller)
 }
 
 interface PluginOptions {
@@ -58,7 +54,7 @@ interface PluginOptions {
 }
 
 const plugin = {
-  version: '2.0.0-beta.8', // Will be replaced by build process
+  version: '1.0.0', // Will be replaced by build process
   install(app: App, options: PluginOptions = {}) {
     const finalOptions = Object.assign({}, {
       installComponents: true,
@@ -78,15 +74,3 @@ const plugin = {
 }
 
 export default plugin
-
-// Auto-install if loaded in browser environment
-if (typeof window !== 'undefined' && window.Vue) {
-  window.Vue.use(plugin)
-}
-
-// Export for CommonJS environments
-declare global {
-  interface Window {
-    Vue: any
-  }
-}

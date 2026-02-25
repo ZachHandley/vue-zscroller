@@ -1,7 +1,6 @@
 <template>
   <div
     class="tr person"
-    @click="edit"
   >
     <div class="td index">
       {{ index }}
@@ -19,25 +18,21 @@
   </div>
 </template>
 
-<script>
-export default {
-  props: ['item', 'index'],
-
-  created () {
-    console.log('created')
-  },
-
-  unmounted () {
-    console.log('unmounted')
-  },
-
-  methods: {
-    edit () {
-      // eslint-disable-next-line vue/no-mutating-props
-      this.item.value.name += '#'
-    },
-  },
+<script setup lang="ts">
+interface PersonItem {
+  type: 'person'
+  value: {
+    name: string
+    avatar: string
+  }
 }
+
+interface Props {
+  item: PersonItem
+  index: number
+}
+
+defineProps<Props>()
 </script>
 
 <style scoped>

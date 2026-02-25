@@ -60,51 +60,55 @@
   </div>
 </template>
 
-<script>
-import { generateMessage } from '../data'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { generateMessage, type MessageItem } from '../data'
 
-const items = []
-for (let i = 0; i < 10000; i++) {
-  items.push({
-    id: i,
-    ...generateMessage(),
-  })
+interface DemoItem extends MessageItem {
+  id: number
 }
 
-export default {
-  data () {
-    return {
-      items,
-      search: '',
-      updateParts: { viewStartIdx: 0, viewEndIdx: 0, visibleStartIdx: 0, visibleEndIdx: 0 },
-    }
-  },
+interface UpdateParts {
+  viewStartIdx: number
+  viewEndIdx: number
+  visibleStartIdx: number
+  visibleEndIdx: number
+}
 
-  computed: {
-    filteredItems () {
-      const { search, items } = this
-      if (!search) return items
-      const lowerCaseSearch = search.toLowerCase()
-      return items.filter(i => i.message.toLowerCase().includes(lowerCaseSearch))
-    },
-  },
+const items = Array.from({ length: 10000 }, (_, i) => ({
+  id: i,
+  ...generateMessage()
+}))
 
-  methods: {
-    changeMessage (message) {
-      Object.assign(message, generateMessage())
-    },
+const search = ref('')
+const updateParts = ref<UpdateParts>({
+  viewStartIdx: 0,
+  viewEndIdx: 0,
+  visibleStartIdx: 0,
+  visibleEndIdx: 0
+})
 
-    onResize () {
-      console.log('resize')
-    },
+const filteredItems = computed(() => {
+  if (!search.value) return items
+  const lowerCaseSearch = search.value.toLowerCase()
+  return items.filter(i => i.message.toLowerCase().includes(lowerCaseSearch))
+})
 
-    onUpdate (viewStartIndex, viewEndIndex, visibleStartIndex, visibleEndIndex) {
-      this.updateParts.viewStartIdx = viewStartIndex
-      this.updateParts.viewEndIdx = viewEndIndex
-      this.updateParts.visibleStartIdx = visibleStartIndex
-      this.updateParts.visibleEndIdx = visibleEndIndex
-    },
-  },
+function changeMessage(message: DemoItem) {
+  Object.assign(message, generateMessage())
+}
+
+function onResize() {
+  console.log('resize')
+}
+
+function onUpdate(event: { startIndex: number, endIndex: number, visibleStartIndex: number, visibleEndIndex: number }) {
+  updateParts.value = {
+    viewStartIdx: event.startIndex,
+    viewEndIdx: event.endIndex,
+    visibleStartIdx: event.visibleStartIndex,
+    visibleEndIdx: event.visibleEndIndex
+  }
 }
 </script>
 
@@ -117,7 +121,8 @@ export default {
 }
 
 .scroller {
-  flex: auto 1 1;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .scroller {

@@ -6,12 +6,12 @@
       ready,
       'page-mode': pageMode,
       [`direction-${direction}`]: true,
-      [listClass]: !!listClass
+      ...(typeof listClass === 'string' && listClass ? { [listClass]: true } : {})
     }"
     @scroll.passive="handleScroll"
   >
     <div
-      v-if="$slots.before"
+      v-if="$slots['before']"
       ref="beforeElement"
       class="vue-recycle-scroller__slot"
     >
@@ -25,34 +25,57 @@
       class="vue-recycle-scroller__item-wrapper"
       :class="listClass"
     >
-      <div
-        v-for="item in visibleItems"
-        :key="getItemKey(item)"
-        :ref="el => registerItemRef(getItemKey(item), el, { item, index: getItemIndex(item) })"
-        :data-index="getItemIndex(item)"
-        :style="getItemStyle(item)"
+      <ItemView
+        v-for="view in pool"
+        :key="view.nr.id"
+        :view="view"
+        :item-tag="itemTag"
+        :style="getViewStyle(view)"
         class="vue-recycle-scroller__item-view"
         :class="[
           itemClass,
           {
-            hover: !skipHover && hoverKey === getItemKey(item)
+            hover: !skipHover && hoverKey === view.nr.key,
+            'vue-recycle-scroller__item-view--invalid': !isItemValid(view.item)
           }
         ]"
-        @mouseenter="!skipHover && (hoverKey = getItemKey(item))"
-        @mouseleave="!skipHover && (hoverKey = null)"
+        v-on="skipHover
+          ? {}
+          : {
+            mouseenter: () => { hoverKey = view.nr.key },
+            mouseleave: () => {
+              if (hoverKey === view.nr.key) hoverKey = null
+            }
+          }"
       >
-        <slot
-          :item="item"
-          :index="getItemIndex(item)"
-          :active="isItemActive(item)"
-        />
-      </div>
+        <template #default="{ item, index, active }">
+          <slot
+            v-if="isItemValid(item)"
+            :item="item"
+            :index="index"
+            :active="active"
+          />
+          <slot
+            v-else
+            name="empty-item"
+            :index="index"
+          >
+            <div class="vue-recycle-scroller__empty-item vue-recycle-scroller__skeleton-row">
+              <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-circle" />
+              <div style="flex: 1;">
+                <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-line" />
+                <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-line" />
+              </div>
+            </div>
+          </slot>
+        </template>
+      </ItemView>
 
       <slot name="empty" />
     </component>
 
     <div
-      v-if="$slots.after"
+      v-if="$slots['after']"
       ref="afterElement"
       class="vue-recycle-scroller__slot"
     >
@@ -61,22 +84,44 @@
   </div>
 </template>
 
-<script setup>
-import { computed, ref, onMounted, onUnmounted, nextTick, watch, useTemplateRef, useId } from 'vue'
-import { useVirtualScrollCore } from '../composables/useVirtualScrollCore'
-import { useSSRSafe } from '../composables/useSSRSafe'
-import { useSSRSafeEnhanced } from '../composables/useSSRSafeEnhanced'
-import { useSlotRefManager } from '../composables/useSlotRefManager'
-import { useVirtualScrollPerformance } from '../composables/useVirtualScrollPerformance'
-import { useScrollLock } from '../composables/useScrollLock'
+<script setup lang="ts">
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowReactive, markRaw, useTemplateRef, watch, type CSSProperties } from 'vue'
+import ItemView from './ItemView.vue'
+import config from '../config'
+import { getScrollParent } from '../scrollparent'
+import type { ScrollerProps, ScrollerEmits, VirtualScrollerItem, VisibilityEvent } from '../types'
 
-const props = withDefaults(defineProps(), {
+interface Props extends ScrollerProps {}
+
+type ViewType = string | number
+
+interface SizeEntry {
+  accumulator: number
+  size: number
+}
+
+interface InternalView {
+  item: VirtualScrollerItem | null | undefined
+  position: number
+  offset: number
+  nr: {
+    id: number
+    index: number
+    used: boolean
+    key: string | number
+    type: ViewType
+  }
+}
+
+const props = withDefaults(defineProps<Props>(), {
   keyField: 'id',
   direction: 'vertical',
   itemSize: null,
   minItemSize: 50,
   gridItems: 1,
-  itemSecondarySize: undefined,
+  itemSecondarySize: 0,
+  gridViewSize: 0,
+  gridViewSecondarySize: 0,
   sizeField: 'size',
   typeField: 'type',
   pageMode: false,
@@ -89,261 +134,980 @@ const props = withDefaults(defineProps(), {
   listTag: 'div',
   itemTag: 'div',
   disableTransform: false,
-  skipHover: false
+  skipHover: false,
+  startAtBottom: false,
+  initialScrollPercent: null,
+  stickToBottom: false,
+  stickToBottomThreshold: 50
 })
 
-const emit = defineEmits(['resize', 'visible', 'update', 'scroll-start', 'scroll-end'])
+const emit = defineEmits<ScrollerEmits>()
 
-// Refs using useTemplateRef for better type safety
-const scrollElement = useTemplateRef('scrollElement')
-const wrapperElement = useTemplateRef('wrapperElement')
-const beforeElement = useTemplateRef('beforeElement')
-const afterElement = useTemplateRef('afterElement')
-const hoverKey = ref(null)
+const scrollElement = useTemplateRef<HTMLElement>('scrollElement')
+const beforeElement = useTemplateRef<HTMLElement>('beforeElement')
+const afterElement = useTemplateRef<HTMLElement>('afterElement')
 
-// Generate stable component ID
-const componentId = useId()
-
-// Advanced slot ref management with automatic memory cleanup
-const slotManager = useSlotRefManager({
-  enableWeakMap: true,
-  cleanupDelay: 100,
-  maxSize: 1000
-})
-
-// Performance optimizations with @vueuse/core
-const performance = useVirtualScrollPerformance({
-  enableScrollDebounce: true,
-  scrollDebounceMs: 16,
-  enableRequestIdleCallback: true,
-  resizeObserverThrottleMs: 100
-})
-
-// Scroll lock for better performance during intensive operations
-const isLocked = useScrollLock(scrollElement)
-
-// Lock scroll during intensive updates
-const lockScrollDuringUpdate = () => {
-  isLocked.value = true
-  setTimeout(() => {
-    isLocked.value = false
-  }, 100)
-}
-
-// Register item refs with slot context for better memory management
-const registerItemRef = (key, element, slotContext) => {
-  slotManager.registerSlotRef(key, element, slotContext)
-}
-
-// State
 const ready = ref(false)
-const items = ref(props.items)
+const hoverKey = ref<string | number | null>(null)
+const pool = ref<InternalView[]>([])
+const totalSize = ref(0)
+const startIndex = ref(0)
+const endIndex = ref(0)
+const isScrolling = ref(false)
+const isAtBottom = ref(false)
 
-// Core virtual scroll functionality
-const virtualScroll = useVirtualScrollCore({
-  items,
-  itemSize: computed(() => props.itemSize),
-  minItemSize: computed(() => props.minItemSize),
-  direction: computed(() => props.direction),
-  buffer: computed(() => props.buffer),
-  keyField: computed(() => props.keyField),
-  sizeField: computed(() => props.sizeField),
-  typeField: computed(() => props.typeField),
-  pageMode: computed(() => props.pageMode),
-  prerender: computed(() => props.prerender),
-  gridItems: computed(() => props.gridItems),
-  itemSecondarySize: computed(() => props.itemSecondarySize),
-  disableTransform: computed(() => props.disableTransform)
+const items = computed<VirtualScrollerItem[]>(() => props.items || [])
+const simpleArray = computed(() => items.value.length > 0 && typeof items.value[0] !== 'object')
+
+const views = new Map<string | number, InternalView>()
+const recycledPools = new Map<ViewType, InternalView[]>()
+
+let uid = 0
+let scrollDirty = false
+let updateTimeout = 0
+let refreshTimeout = 0
+let scrollEndTimeout = 0
+let sortTimer = 0
+let lastUpdateScrollPosition = 0
+let listenerTarget: EventTarget | null = null
+let resizeObserver: ResizeObserver | null = null
+let fallbackResizeHandler: (() => void) | null = null
+
+// Track currently visible item keys for visible/hidden events
+const previousVisibleKeys = new Map<string | number, { item: VirtualScrollerItem; index: number }>()
+
+const sizeData = computed(() => {
+  if (props.itemSize !== null) {
+    return {
+      entries: [] as SizeEntry[],
+      total: Math.ceil(items.value.length / (props.gridItems || 1)) * props.itemSize,
+      computedMinSize: props.minItemSize
+    }
+  }
+
+  const entries: SizeEntry[] = []
+  let accumulator = 0
+  let computedMinSize = Number.POSITIVE_INFINITY
+
+  for (let i = 0; i < items.value.length; i++) {
+    const item = items.value[i]
+    const itemSize = (item?.[props.sizeField] as number) || props.minItemSize
+    if (itemSize < computedMinSize) {
+      computedMinSize = itemSize
+    }
+    accumulator += itemSize
+    entries.push({
+      accumulator,
+      size: itemSize
+    })
+  }
+
+  if (!Number.isFinite(computedMinSize)) {
+    computedMinSize = props.minItemSize
+  }
+
+  return {
+    entries,
+    total: accumulator,
+    computedMinSize
+  }
 })
 
-// Destructure virtual scroll methods and state
-const {
-  totalSize,
-  visibleItems,
-  startIndex,
-  endIndex,
-  scrollPosition,
-  isScrolling,
-  isClient,
-  containerSize,
-  updateVisibleItems,
-  handleScroll: virtualHandleScroll,
-  handleResize: virtualHandleResize,
-  scrollToItem: virtualScrollToItem,
-  scrollToPosition: virtualScrollToPosition,
-  reset
-} = virtualScroll
-
-// Enhanced SSR safety with @vueuse/core patterns
-const { isServer } = useSSRSafe()
-const { useSSRSafeViewport, useSSRSafeRaf } = useSSRSafeEnhanced()
-const { viewportWidth, viewportHeight } = useSSRSafeViewport()
-const { requestRaf, cancelRaf } = useSSRSafeRaf()
-
-// Computed styles
-const wrapperStyle = computed(() => {
+const wrapperStyle = computed<CSSProperties>(() => {
   const sizeKey = props.direction === 'vertical' ? 'minHeight' : 'minWidth'
   return {
-    [sizeKey]: `${totalSize.value}px`
+    [sizeKey]: `${Math.max(totalSize.value, 0)}px`
   }
 })
 
-// Methods
-const getItemKey = (item) => {
-  const index = items.value.findIndex(i => i === item)
-  return item[props.keyField] || item.id || `${componentId}-item-${index}`
+const isItemValid = (item: VirtualScrollerItem | null | undefined): boolean => {
+  return item !== null && item !== undefined && typeof item === 'object'
 }
 
-const getItemIndex = (item) => {
-  return items.value.findIndex(i => getItemKey(i) === getItemKey(item))
+const getViewType = (item: VirtualScrollerItem | null | undefined): ViewType => {
+  if (!item || typeof item !== 'object') return 'default'
+  return (item[props.typeField] as ViewType) ?? 'default'
 }
 
-const isItemActive = (item) => {
-  const index = getItemIndex(item)
-  return index >= startIndex.value && index <= endIndex.value
+const getRecycledPool = (type: ViewType): InternalView[] => {
+  let recycledPool = recycledPools.get(type)
+  if (!recycledPool) {
+    recycledPool = []
+    recycledPools.set(type, recycledPool)
+  }
+  return recycledPool
 }
 
-const getItemStyle = (item) => {
-  if (!ready.value) {
+const createView = (index: number, item: VirtualScrollerItem | null | undefined, key: string | number, type: ViewType): InternalView => {
+  const nr = markRaw({
+    id: uid++,
+    index,
+    used: true,
+    key,
+    type
+  })
+
+  const view = shallowReactive({
+    item,
+    position: 0,
+    offset: 0,
+    nr
+  }) as InternalView
+
+  pool.value.push(view)
+  return view
+}
+
+const getRecycledView = (type: ViewType): InternalView | undefined => {
+  const recycledPool = getRecycledPool(type)
+  if (!recycledPool.length) return undefined
+  const view = recycledPool.pop()
+  if (view) {
+    view.nr.used = true
+  }
+  return view
+}
+
+const removeAndRecycleView = (view: InternalView) => {
+  const recycledPool = getRecycledPool(view.nr.type)
+  recycledPool.push(view)
+  view.nr.used = false
+  view.position = -9999
+  view.offset = 0
+  views.delete(view.nr.key)
+}
+
+const removeAndRecycleAllViews = () => {
+  views.clear()
+  recycledPools.clear()
+  for (const view of pool.value) {
+    removeAndRecycleView(view)
+  }
+}
+
+const getScroll = () => {
+  const el = scrollElement.value
+  if (!el) return { start: 0, end: 0 }
+
+  const isVertical = props.direction === 'vertical'
+
+  if (props.pageMode) {
+    const bounds = el.getBoundingClientRect()
+    const boundsSize = isVertical ? bounds.height : bounds.width
+    let start = -(isVertical ? bounds.top : bounds.left)
+    let size = isVertical ? window.innerHeight : window.innerWidth
+
+    if (start < 0) {
+      size += start
+      start = 0
+    }
+
+    if (start + size > boundsSize) {
+      size = boundsSize - start
+    }
+
     return {
-      visibility: 'hidden'
+      start,
+      end: start + size
     }
   }
 
-  const index = getItemIndex(item)
+  if (isVertical) {
+    return {
+      start: el.scrollTop,
+      end: el.scrollTop + el.clientHeight
+    }
+  }
+
+  return {
+    start: el.scrollLeft,
+    end: el.scrollLeft + el.clientWidth
+  }
+}
+
+const getViewportExtent = (): number => {
+  const el = scrollElement.value
+  if (!el) return 0
+
+  if (props.pageMode) {
+    return props.direction === 'vertical' ? window.innerHeight : window.innerWidth
+  }
+
+  return props.direction === 'vertical' ? el.clientHeight : el.clientWidth
+}
+
+const getFixedItemPosition = (index: number): { position: number; offset: number } => {
+  const gridItems = props.gridItems || 1
+  const baseItemSize = props.itemSize || props.minItemSize
+  const itemSecondarySize = props.itemSecondarySize || baseItemSize
+
+  return {
+    position: Math.floor(index / gridItems) * baseItemSize,
+    offset: (index % gridItems) * itemSecondarySize
+  }
+}
+
+const getVariableItemPosition = (index: number): number => {
+  if (index <= 0) return 0
+  const prev = sizeData.value.entries[index - 1]
+  return prev ? prev.accumulator : 0
+}
+
+const findIndexFromOffset = (offset: number): number => {
+  const entries = sizeData.value.entries
+  const count = entries.length
+  if (count === 0) return 0
+  if (offset <= 0) return 0
+
+  let low = 0
+  let high = count - 1
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2)
+    if (entries[mid]!.accumulator < offset) {
+      low = mid + 1
+    } else {
+      high = mid
+    }
+  }
+
+  return low
+}
+
+const getItemSizeAt = (index: number): number => {
+  if (props.itemSize !== null) return props.itemSize
+  return sizeData.value.entries[index]?.size || props.minItemSize
+}
+
+const itemsLimitError = () => {
+  setTimeout(() => {
+    console.error(
+      '[zvue-virtual-scroller] Rendered items limit reached. Ensure scroller has a fixed size and overflow enabled.',
+      scrollElement.value
+    )
+  })
+  throw new Error('Rendered items limit reached')
+}
+
+// O(n) gap check: instead of filter+sort (O(n log n)), check contiguity via min/max/count
+const isAnyVisibleGap = () => {
+  let minIndex = Infinity
+  let maxIndex = -Infinity
+  let usedCount = 0
+
+  for (const view of pool.value) {
+    if (!view.nr.used) continue
+    usedCount++
+    if (view.nr.index < minIndex) minIndex = view.nr.index
+    if (view.nr.index > maxIndex) maxIndex = view.nr.index
+  }
+
+  return usedCount > 0 && (maxIndex - minIndex + 1) !== usedCount
+}
+
+let sortViewsInProgress = false
+let sortViewsAttempts = 0
+
+const sortViews = () => {
+  if (sortViewsInProgress) return
+  sortViewsInProgress = true
+  sortViewsAttempts++
+
+  pool.value.sort((a, b) => a.nr.index - b.nr.index)
+  // Only retry once to fill gaps; prevent infinite cycle
+  if (sortViewsAttempts <= 2 && isAnyVisibleGap()) {
+    updateVisibleItems(false)
+  }
+
+  sortViewsInProgress = false
+}
+
+const emitScrollEndEventually = () => {
+  if (scrollEndTimeout) {
+    clearTimeout(scrollEndTimeout)
+  }
+
+  scrollEndTimeout = window.setTimeout(() => {
+    if (isScrolling.value) {
+      isScrolling.value = false
+      emit('scroll-end')
+    }
+  }, 150)
+}
+
+const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => {
+  const count = items.value.length
+  let newStartIndex = 0
+  let newEndIndex = 0
+  let visibleStartIndex = 0
+  let visibleEndIndex = 0
+  let nextTotalSize = 0
+
+  if (!count) {
+    newStartIndex = 0
+    newEndIndex = 0
+    visibleStartIndex = 0
+    visibleEndIndex = 0
+    nextTotalSize = 0
+  } else if (props.prerender > 0 && !ready.value) {
+    newStartIndex = 0
+    newEndIndex = Math.min(props.prerender, count)
+    visibleStartIndex = newStartIndex
+    visibleEndIndex = newEndIndex
+    nextTotalSize = props.itemSize !== null
+      ? Math.ceil(count / (props.gridItems || 1)) * props.itemSize
+      : sizeData.value.total
+  } else {
+    const scroll = getScroll()
+
+    if (checkPositionDiff) {
+      const positionDiff = Math.abs(scroll.start - lastUpdateScrollPosition)
+      const minSize = props.itemSize === null ? sizeData.value.computedMinSize : props.itemSize
+      if (positionDiff < minSize) {
+        return { continuous: true }
+      }
+    }
+
+    lastUpdateScrollPosition = scroll.start
+
+    scroll.start -= props.buffer
+    scroll.end += props.buffer
+
+    let beforeSize = 0
+    if (beforeElement.value) {
+      beforeSize = props.direction === 'vertical'
+        ? beforeElement.value.scrollHeight
+        : beforeElement.value.scrollWidth
+      scroll.start -= beforeSize
+    }
+
+    if (afterElement.value) {
+      const afterSize = props.direction === 'vertical'
+        ? afterElement.value.scrollHeight
+        : afterElement.value.scrollWidth
+      scroll.end += afterSize
+    }
+
+    if (props.itemSize === null) {
+      newStartIndex = findIndexFromOffset(scroll.start)
+      newEndIndex = Math.min(findIndexFromOffset(scroll.end) + 1, count)
+
+      const visibleStartOffset = Math.max(scroll.start - beforeSize, 0)
+      const visibleEndOffset = Math.max(scroll.end - beforeSize, 0)
+      visibleStartIndex = findIndexFromOffset(visibleStartOffset)
+      visibleEndIndex = Math.min(findIndexFromOffset(visibleEndOffset) + 1, count)
+
+      nextTotalSize = sizeData.value.total
+    } else {
+      const gridItems = props.gridItems || 1
+      const itemSize = props.itemSize
+
+      newStartIndex = Math.floor((scroll.start / itemSize) * gridItems)
+      const remainder = newStartIndex % gridItems
+      newStartIndex -= remainder
+
+      newEndIndex = Math.ceil((scroll.end / itemSize) * gridItems)
+      visibleStartIndex = Math.max(0, Math.floor(((scroll.start - beforeSize) / itemSize) * gridItems))
+      visibleEndIndex = Math.floor(((scroll.end - beforeSize) / itemSize) * gridItems)
+
+      newStartIndex = Math.max(0, newStartIndex)
+      newEndIndex = Math.min(count, newEndIndex)
+      visibleStartIndex = Math.max(0, visibleStartIndex)
+      visibleEndIndex = Math.min(count, visibleEndIndex)
+
+      nextTotalSize = Math.ceil(count / gridItems) * itemSize
+    }
+  }
+
+  if (newEndIndex - newStartIndex > config.itemsLimit) {
+    itemsLimitError()
+  }
+
+  totalSize.value = nextTotalSize
+
+  const continuous = newStartIndex <= endIndex.value && newEndIndex >= startIndex.value
+
+  // Capture currently visible keys before view recycling
+  const oldVisibleKeys = new Map(previousVisibleKeys)
+
+  if (!continuous || itemsChanged) {
+    removeAndRecycleAllViews()
+  } else {
+    for (const view of pool.value) {
+      if (!view.nr.used) continue
+
+      const viewVisible = view.nr.index >= newStartIndex && view.nr.index < newEndIndex
+      const viewSize = getItemSizeAt(view.nr.index)
+      if (!viewVisible || !viewSize) {
+        removeAndRecycleView(view)
+      }
+    }
+  }
+
+  for (let i = newStartIndex; i < newEndIndex; i++) {
+    const elementSize = getItemSizeAt(i)
+    if (!elementSize) continue
+
+    const item = items.value[i]
+    const key = simpleArray.value ? i : item?.[props.keyField]
+
+    if (key == null) {
+      throw new Error(`Key is ${String(key)} on item (keyField is '${props.keyField}')`)
+    }
+
+    let view = views.get(key)
+    const type = getViewType(item)
+
+    if (!view) {
+      view = getRecycledView(type)
+
+      if (view) {
+        view.item = item
+        view.nr.index = i
+        view.nr.key = key
+        view.nr.type = type
+      } else {
+        view = createView(i, item, key, type)
+      }
+
+      views.set(key, view)
+    } else if (view.item !== item) {
+      view.item = item
+    }
+
+    if (props.itemSize === null) {
+      view.position = getVariableItemPosition(i)
+      view.offset = 0
+    } else {
+      const position = getFixedItemPosition(i)
+      view.position = position.position
+      view.offset = position.offset
+    }
+  }
+
+  // Compute new visible set and emit visible/hidden events
+  const newVisibleKeys = new Map<string | number, { item: VirtualScrollerItem; index: number }>()
+  for (const [key, view] of views) {
+    if (view.nr.used && view.item) {
+      newVisibleKeys.set(key, { item: view.item, index: view.nr.index })
+    }
+  }
+
+  // Emit 'visible' for items that entered the viewport
+  for (const [key, data] of newVisibleKeys) {
+    if (!oldVisibleKeys.has(key)) {
+      emit('visible', { item: data.item, index: data.index, key } as VisibilityEvent)
+    }
+  }
+
+  // Emit 'hidden' for items that left the viewport
+  for (const [key, data] of oldVisibleKeys) {
+    if (!newVisibleKeys.has(key)) {
+      emit('hidden', { item: data.item, index: data.index, key } as VisibilityEvent)
+    }
+  }
+
+  // Update tracked visible keys
+  previousVisibleKeys.clear()
+  for (const [key, data] of newVisibleKeys) {
+    previousVisibleKeys.set(key, data)
+  }
+
+  startIndex.value = newStartIndex
+  endIndex.value = newEndIndex
+
+  if (props.emitUpdate) {
+    emit('update', {
+      startIndex: newStartIndex,
+      endIndex: newEndIndex,
+      visibleStartIndex,
+      visibleEndIndex
+    })
+  }
+
+  if (itemsChanged) {
+    sortViewsAttempts = 0
+    if (sortTimer) {
+      clearTimeout(sortTimer)
+    }
+    sortTimer = window.setTimeout(sortViews, props.updateInterval + 300)
+  }
+
+  return { continuous }
+}
+
+let resizeRafId = 0
+let lastContainerWidth = 0
+let lastContainerHeight = 0
+
+const handleResize = () => {
+  const el = scrollElement.value
+  if (!el) return
+  const w = el.clientWidth
+  const h = el.clientHeight
+
+  // Skip if container size hasn't actually changed — prevents ResizeObserver
+  // loop from wrapper minHeight/minWidth changes triggering endless cycles
+  if (w === lastContainerWidth && h === lastContainerHeight) return
+  lastContainerWidth = w
+  lastContainerHeight = h
+
+  emit('resize', { width: w, height: h })
+
+  if (ready.value) {
+    if (resizeRafId) cancelAnimationFrame(resizeRafId)
+    resizeRafId = requestAnimationFrame(() => {
+      resizeRafId = 0
+      updateVisibleItems(false)
+    })
+  }
+}
+
+let nonContinuousRetries = 0
+
+const scheduleScrollUpdate = () => {
+  const requestUpdate = () => {
+    requestAnimationFrame(() => {
+      scrollDirty = false
+      const { continuous } = updateVisibleItems(false, true)
+
+      if (!continuous && nonContinuousRetries < 3) {
+        nonContinuousRetries++
+        if (refreshTimeout) clearTimeout(refreshTimeout)
+        refreshTimeout = window.setTimeout(scheduleScrollUpdate, props.updateInterval + 100)
+      } else {
+        nonContinuousRetries = 0
+      }
+
+      emitScrollEndEventually()
+    })
+  }
+
+  requestUpdate()
+
+  if (props.updateInterval > 0) {
+    updateTimeout = window.setTimeout(() => {
+      updateTimeout = 0
+      if (scrollDirty) {
+        requestUpdate()
+      }
+    }, props.updateInterval)
+  }
+}
+
+const handleScroll = () => {
+  if (!ready.value) return
+
+  nonContinuousRetries = 0
+
+  // Track whether user is at the bottom (within threshold) for stickToBottom
+  if (props.stickToBottom) {
+    const el = scrollElement.value
+    if (el) {
+      if (props.direction === 'vertical') {
+        isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - props.stickToBottomThreshold
+      } else {
+        isAtBottom.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - props.stickToBottomThreshold
+      }
+    }
+  }
+
+  if (!isScrolling.value) {
+    isScrolling.value = true
+    emit('scroll-start')
+  }
+
+  if (!scrollDirty) {
+    scrollDirty = true
+    if (updateTimeout) return
+    scheduleScrollUpdate()
+  }
+}
+
+const getListenerTarget = (): EventTarget | null => {
+  const el = scrollElement.value
+  if (!el) return null
+
+  let target = getScrollParent(el)
+  if (window.document && (target === window.document.documentElement || target === window.document.body)) {
+    return window
+  }
+
+  return target || window
+}
+
+const addListeners = () => {
+  listenerTarget = getListenerTarget()
+  if (!listenerTarget) return
+
+  listenerTarget.addEventListener('scroll', handleScroll, { passive: true })
+  listenerTarget.addEventListener('resize', handleResize)
+}
+
+const removeListeners = () => {
+  if (!listenerTarget) return
+
+  listenerTarget.removeEventListener('scroll', handleScroll)
+  listenerTarget.removeEventListener('resize', handleResize)
+  listenerTarget = null
+}
+
+const applyPageMode = () => {
+  if (props.pageMode) {
+    addListeners()
+  } else {
+    removeListeners()
+  }
+}
+
+const scrollToPosition = (position: number) => {
+  const el = scrollElement.value
+  if (!el) return
+
+  let viewport: any
+  let scrollDistance = Math.max(0, position)
+
+  if (props.pageMode) {
+    const viewportEl = getScrollParent(el)
+    if (!viewportEl) return
+
+    const isVertical = props.direction === 'vertical'
+    const scrollOffset = (viewportEl as any).tagName === 'HTML'
+      ? 0
+      : (isVertical ? (viewportEl as any).scrollTop : (viewportEl as any).scrollLeft)
+    const bounds = viewportEl.getBoundingClientRect()
+    const scroller = el.getBoundingClientRect()
+    const scrollerPosition = props.direction === 'vertical'
+      ? scroller.top - bounds.top
+      : scroller.left - bounds.left
+
+    viewport = viewportEl
+    scrollDistance = scrollDistance + scrollOffset + scrollerPosition
+  } else {
+    viewport = el
+  }
+
+  if (props.direction === 'vertical') {
+    viewport.scrollTop = scrollDistance
+  } else {
+    viewport.scrollLeft = scrollDistance
+  }
+}
+
+const scrollToPercent = (percent: number) => {
+  const clampedPercent = Math.max(0, Math.min(percent, 1))
+  const viewportExtent = getViewportExtent()
+  const maxOffset = Math.max(totalSize.value - viewportExtent, 0)
+  scrollToPosition(maxOffset * clampedPercent)
+}
+
+const scrollToBottom = () => {
+  const el = scrollElement.value
+  if (!el) return
+
+  const applyScroll = () => {
+    if (props.direction === 'vertical') {
+      el.scrollTop = el.scrollHeight - el.clientHeight
+    } else {
+      el.scrollLeft = el.scrollWidth - el.clientWidth
+    }
+  }
+
+  let attempts = 0
+  const maxAttempts = 3
+
+  const settle = () => {
+    applyScroll()
+    attempts++
+    if (attempts < maxAttempts) {
+      nextTick(() => {
+        // Verify and adjust — covers DynamicScroller async size updates
+        const isVertical = props.direction === 'vertical'
+        const atEnd = isVertical
+          ? el.scrollTop + el.clientHeight >= el.scrollHeight - 1
+          : el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+        if (!atEnd) {
+          settle()
+        }
+      })
+    }
+  }
+
+  nextTick(settle)
+}
+
+const scrollToItem = (index: number, alignment: 'start' | 'center' | 'end' | 'auto' = 'auto') => {
+  if (index < 0 || index >= items.value.length) return
+
   let position = 0
 
-  // Calculate position based on item sizes
   if (props.itemSize !== null) {
-    position = index * props.itemSize
+    position = getFixedItemPosition(index).position
   } else {
-    for (let i = 0; i < index; i++) {
-      const itemSize = items.value[i][props.sizeField] || props.minItemSize
-      position += itemSize
+    position = getVariableItemPosition(index)
+  }
+
+  // Account for before slot element offset
+  if (beforeElement.value) {
+    position += props.direction === 'vertical'
+      ? beforeElement.value.scrollHeight
+      : beforeElement.value.scrollWidth
+  }
+
+  const viewportExtent = getViewportExtent()
+
+  if (alignment === 'center') {
+    position -= viewportExtent / 2
+  } else if (alignment === 'end') {
+    position -= viewportExtent
+  } else if (alignment === 'auto') {
+    const current = getScroll()
+    const itemExtent = getItemSizeAt(index)
+    if (position >= current.start && position + itemExtent <= current.end) {
+      return
     }
   }
 
-  const style = {
-    visibility: isItemActive(item) ? 'visible' : 'hidden'
+  scrollToPosition(Math.max(position, 0))
+}
+
+const getViewStyle = (view: InternalView): CSSProperties => {
+  const style: CSSProperties = {
+    visibility: view.nr.used ? 'visible' : 'hidden'
   }
 
   if (props.disableTransform) {
-    const positionKey = props.direction === 'vertical' ? 'top' : 'left'
-    style[positionKey] = `${position}px`
+    if (props.direction === 'vertical') {
+      style.top = `${view.position}px`
+      style.left = `${view.offset}px`
+    } else {
+      style.left = `${view.position}px`
+      style.top = `${view.offset}px`
+    }
     style.willChange = 'unset'
   } else {
-    const transformKey = props.direction === 'vertical' ? 'translateY' : 'translateX'
-    const offsetKey = props.direction === 'vertical' ? 'translateX' : 'translateY'
-    style.transform = `${transformKey}(${position}px) ${offsetKey}(0px)`
+    const mainTransform = props.direction === 'vertical' ? 'translateY' : 'translateX'
+    const crossTransform = props.direction === 'vertical' ? 'translateX' : 'translateY'
+    style.transform = `${mainTransform}(${view.position}px) ${crossTransform}(${view.offset}px)`
   }
 
-  // Grid layout support
   if (props.gridItems > 1) {
-    const gridIndex = index % props.gridItems
-    const secondarySize = props.itemSecondarySize || props.itemSize || props.minItemSize
+    // Use gridViewSize/gridViewSecondarySize for the actual content dimensions
+    // when provided (set by GridScroller). These exclude gaps and may be stretched
+    // to fill the container. Fall back to stride-based sizes for backward compat.
+    const mainSize = props.gridViewSize || props.itemSize || props.minItemSize
+    const crossSize = props.gridViewSecondarySize || props.itemSecondarySize || props.itemSize || props.minItemSize
 
     if (props.direction === 'vertical') {
-      style.width = `${secondarySize}px`
-      style.height = `${props.itemSize || props.minItemSize}px`
-      style.position = 'absolute'
-      style.left = `${gridIndex * secondarySize}px`
+      style.width = `${crossSize}px`
+      style.height = `${mainSize}px`
     } else {
-      style.width = `${props.itemSize || props.minItemSize}px`
-      style.height = `${secondarySize}px`
-      style.position = 'absolute'
-      style.top = `${gridIndex * secondarySize}px`
+      style.width = `${mainSize}px`
+      style.height = `${crossSize}px`
     }
   }
 
   return style
 }
 
-const handleScroll = (event) => {
-  // Use performance-optimized scroll handler
-  performance.handleScroll(event)
+// Smart items change detection - track only what we actually diff on (O(1) instead of O(n) copy)
+let previousFirstKey: string | number | null = null
+let previousLastKey: string | number | null = null
+let previousItemsLength = 0
 
-  // Use high-priority scheduling for critical updates
-  performance.scheduleUpdate(() => {
-    virtualHandleScroll(event)
+const handlePrepend = (prependCount: number) => {
+  const el = scrollElement.value
+  if (!el) {
+    nextTick(() => updateVisibleItems(true))
+    return
+  }
 
-    // Emit scroll events
-    if (props.emitUpdate) {
-      emit('update', {
-        startIndex: startIndex.value,
-        endIndex: endIndex.value,
-        visibleStartIndex: startIndex.value,
-        visibleEndIndex: endIndex.value
-      })
+  // Calculate size of prepended items
+  let prependSize = 0
+  if (props.itemSize !== null) {
+    const gridItems = props.gridItems || 1
+    prependSize = Math.ceil(prependCount / gridItems) * props.itemSize
+  } else {
+    for (let i = 0; i < prependCount; i++) {
+      const item = items.value[i]
+      prependSize += (item?.[props.sizeField] as number) || props.minItemSize
     }
-  }, 'high')
-}
-
-const handleResize = (event) => {
-  // Use performance-optimized resize handler
-  if (event) {
-    performance.handleResize(event)
   }
 
-  if (scrollElement.value) {
-    const rect = scrollElement.value.getBoundingClientRect()
-
-    // Lock scroll during resize to prevent layout thrashing
-    lockScrollDuringUpdate()
-
-    // Use high-priority scheduling for resize updates
-    performance.scheduleUpdate(() => {
-      virtualHandleResize({
-        width: rect.width,
-        height: rect.height
-      })
-    }, 'high')
-  }
-}
-
-// Public methods exposed via ref
-const scrollToItem = (index, alignment) => {
-  virtualScrollToItem(index, alignment)
-}
-
-const scrollToPosition = (position) => {
-  virtualScrollToPosition(position)
-}
-
-// Watch for items changes
-watch(() => props.items, (newItems) => {
-  items.value = newItems
+  // Adjust scroll position to keep viewport content stable
   nextTick(() => {
-    updateVisibleItems()
+    if (props.direction === 'vertical') {
+      el.scrollTop += prependSize
+    } else {
+      el.scrollLeft += prependSize
+    }
+    updateVisibleItems(true)
   })
-}, { deep: true })
+}
 
-// Lifecycle hooks
+watch(() => props.items, (newItems) => {
+  const newArr = newItems || []
+  const oldFirstKey = previousFirstKey
+  const oldLastKey = previousLastKey
+  const oldLen = previousItemsLength
+  const newLen = newArr.length
+
+  // Update tracking state (O(1) - no array copy)
+  const keyField = props.keyField
+  previousItemsLength = newLen
+  previousFirstKey = newLen > 0 ? (simpleArray.value ? 0 : newArr[0]?.[keyField]) : null
+  previousLastKey = newLen > 0 ? (simpleArray.value ? (newLen - 1) : newArr[newLen - 1]?.[keyField]) : null
+
+  if (newLen === 0 || oldLen === 0) {
+    // Full replace
+    nextTick(() => updateVisibleItems(true))
+    return
+  }
+
+  // Same length + same keys = property updates only (e.g., DynamicScroller size changes)
+  if (newLen === oldLen && newLen > 0) {
+    if (oldFirstKey === previousFirstKey && oldLastKey === previousLastKey) {
+      // Check if any visible item sizes actually changed before triggering update.
+      // This prevents the DynamicScroller cascade: itemsWithSize creates new wrapper
+      // objects on every sizeVersion change, but if no actual sizes differ for
+      // visible items, we can skip the expensive updateVisibleItems call entirely.
+      let sizeChanged = false
+      const sField = props.sizeField
+      for (let i = startIndex.value; i < endIndex.value && i < newLen; i++) {
+        const item = newArr[i]
+        const key = simpleArray.value ? i : item?.[keyField]
+        const view = views.get(key)
+        if (view && view.item !== item) {
+          const oldSize = view.item?.[sField]
+          const newSize = item?.[sField]
+          if (oldSize !== newSize) {
+            sizeChanged = true
+            break
+          }
+        }
+      }
+      if (sizeChanged) {
+        nextTick(() => updateVisibleItems(false))
+      }
+      return
+    }
+  }
+
+  // Detect append: old items still at same positions, new items at end
+  if (newLen > oldLen) {
+    if (oldFirstKey === previousFirstKey) {
+      // Append detected — no recycle needed, just update
+      const shouldStick = props.stickToBottom && isAtBottom.value
+      nextTick(() => {
+        updateVisibleItems(false)
+        if (shouldStick) {
+          nextTick(() => scrollToBottom())
+        }
+      })
+      return
+    }
+
+    // Prepend detected — new items at start
+    if (oldLastKey === previousLastKey) {
+      // Prepend: preserve scroll position
+      const prependCount = newLen - oldLen
+      handlePrepend(prependCount)
+      return
+    }
+  }
+
+  // Default: full update
+  nextTick(() => updateVisibleItems(true))
+})
+
+watch(() => props.pageMode, () => {
+  applyPageMode()
+  nextTick(() => {
+    updateVisibleItems(false)
+  })
+})
+
+watch([
+  () => props.itemSize,
+  () => props.minItemSize,
+  () => props.sizeField,
+  () => props.typeField,
+  () => props.buffer,
+  () => props.gridItems,
+  () => props.itemSecondarySize,
+  () => props.gridViewSize,
+  () => props.gridViewSecondarySize,
+  () => props.direction
+], () => {
+  nextTick(() => {
+    updateVisibleItems(true)
+  })
+})
+
 onMounted(() => {
-  if (isClient.value) {
-    ready.value = true
-    nextTick(() => {
-      updateVisibleItems()
+  applyPageMode()
+
+  if (typeof ResizeObserver !== 'undefined' && scrollElement.value) {
+    resizeObserver = new ResizeObserver(() => {
       handleResize()
     })
+    resizeObserver.observe(scrollElement.value)
+  } else {
+    fallbackResizeHandler = () => {
+      handleResize()
+    }
+    window.addEventListener('resize', fallbackResizeHandler)
   }
+
+  nextTick(() => {
+    ready.value = true
+    updateVisibleItems(true)
+    handleResize()
+
+    if (props.initialScrollPercent !== null) {
+      scrollToPercent(props.initialScrollPercent)
+    } else if (props.startAtBottom) {
+      scrollToBottom()
+    }
+
+    // When stickToBottom is enabled, treat initial state as "at bottom"
+    // so that items appended before the user scrolls will auto-scroll
+    if (props.stickToBottom) {
+      isAtBottom.value = true
+    }
+  })
 })
 
 onUnmounted(() => {
-  reset()
-  performance.cancelScroll()
+  removeListeners()
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+  if (fallbackResizeHandler) {
+    window.removeEventListener('resize', fallbackResizeHandler)
+    fallbackResizeHandler = null
+  }
+  if (resizeRafId) cancelAnimationFrame(resizeRafId)
+  if (updateTimeout) clearTimeout(updateTimeout)
+  if (refreshTimeout) clearTimeout(refreshTimeout)
+  if (scrollEndTimeout) clearTimeout(scrollEndTimeout)
+  if (sortTimer) clearTimeout(sortTimer)
 })
 
-// Expose public methods with performance monitoring
 defineExpose({
   scrollToItem,
   scrollToPosition,
+  scrollToBottom,
+  scrollToPercent,
   updateVisibleItems,
-  reset,
-  // Performance monitoring methods
-  getPerformanceStats: performance.getPerformanceStats,
-  resetPerformanceMetrics: performance.resetMetrics,
-  getSlotStats: slotManager.getSlotStats,
-  cleanupSlots: slotManager.cleanupAllSlots
+  isAtBottom,
+  reset: () => {
+    startIndex.value = 0
+    endIndex.value = 0
+    isScrolling.value = false
+    removeAndRecycleAllViews()
+  }
 })
 </script>
 
@@ -360,7 +1124,6 @@ defineExpose({
 }
 
 .vue-recycle-scroller.direction-vertical {
-  overflow-x: hidden;
   overflow-y: auto;
 }
 
@@ -375,6 +1138,8 @@ defineExpose({
 
 .vue-recycle-scroller__item-view {
   position: absolute;
+  top: 0;
+  left: 0;
   box-sizing: border-box;
   backface-visibility: hidden;
   contain: layout style paint;
@@ -397,5 +1162,84 @@ defineExpose({
 .vue-recycle-scroller.page-mode.direction-horizontal {
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+.vue-recycle-scroller__item-view--invalid {
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.5;
+}
+
+.vue-recycle-scroller__empty-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  color: #999;
+  font-size: 14px;
+  background: #f5f5f5;
+  border: 1px dashed #ddd;
+}
+
+.vue-recycle-scroller__skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #e9ecef;
+  border-radius: 4px;
+}
+
+.vue-recycle-scroller__skeleton::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: vue-scroller-shimmer 1.5s ease-in-out infinite;
+  transform: translateX(-100%);
+}
+
+@keyframes vue-scroller-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.vue-recycle-scroller__skeleton-line {
+  height: 16px;
+  margin: 8px 0;
+  border-radius: 4px;
+}
+
+.vue-recycle-scroller__skeleton-line:first-child {
+  width: 60%;
+}
+
+.vue-recycle-scroller__skeleton-line:nth-child(2) {
+  width: 80%;
+}
+
+.vue-recycle-scroller__skeleton-line:nth-child(3) {
+  width: 40%;
+}
+
+.vue-recycle-scroller__skeleton-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.vue-recycle-scroller__skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
 }
 </style>

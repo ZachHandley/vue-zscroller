@@ -1,53 +1,26 @@
-import type { DefineComponent, PropType } from 'vue'
+import type RecycleScrollerVue from '../components/RecycleScroller.vue'
+import type DynamicScrollerVue from '../components/DynamicScroller.vue'
+import type DynamicScrollerItemVue from '../components/DynamicScrollerItem.vue'
+import type GridScrollerVue from '../components/GridScroller.vue'
 import type {
-  ScrollerProps,
-  DynamicScrollerProps,
-  DynamicScrollerItemProps,
-  ScrollerEmits,
-  DynamicScrollerEmits,
-  DynamicScrollerItemEmits,
   VirtualScrollerSlotProps,
   DynamicScrollerSlotProps
 } from './index'
 
-export type RecycleScrollerComponent = DefineComponent<
-  Omit<ScrollerProps, 'items'> & {
-    items: PropType<ScrollerProps['items']>
-  },
-  {},
-  unknown,
-  {},
-  {},
-  DefaultSlots
->
+export type RecycleScrollerComponent = typeof RecycleScrollerVue
 
-export type DynamicScrollerComponent = DefineComponent<
-  Omit<DynamicScrollerProps, 'items'> & {
-    items: PropType<DynamicScrollerProps['items']>
-  },
-  {},
-  unknown,
-  {},
-  {},
-  DefaultSlots
->
+export type DynamicScrollerComponent = typeof DynamicScrollerVue
 
-export type DynamicScrollerItemComponent = DefineComponent<
-  Omit<DynamicScrollerItemProps, 'item'> & {
-    item: PropType<DynamicScrollerItemProps['item']>
-  },
-  {},
-  unknown,
-  {},
-  {},
-  DefaultSlots
->
+export type DynamicScrollerItemComponent = typeof DynamicScrollerItemVue
+
+export type GridScrollerComponent = typeof GridScrollerVue
 
 export interface DefaultSlots {
   default?: (props: VirtualScrollerSlotProps) => any
   before?: () => any
   after?: () => any
   empty?: () => any
+  'empty-item'?: (props: { index: number }) => any
 }
 
 export interface DynamicScrollerSlots {
@@ -55,6 +28,7 @@ export interface DynamicScrollerSlots {
   before?: () => any
   after?: () => any
   empty?: () => any
+  'empty-item'?: (props: { index: number }) => any
 }
 
 export interface ComponentConfig {

@@ -1,26 +1,26 @@
 <template>
   <component
-    :is="itemTag"
+    :is="props.itemTag"
     class="vue-recycle-scroller__item-view"
   >
     <slot
-      :item="view.item"
-      :index="view.nr.index"
-      :active="view.nr.used"
+      :item="props.view.item"
+      :index="props.view.nr.index"
+      :active="props.view.nr.used"
     />
   </component>
 </template>
 
-<script setup>
-const props = defineProps({
-  view: {
-    type: Object,
-    required: true
-  },
-  itemTag: {
-    type: String,
-    default: 'div'
-  }
+<script setup lang="ts">
+import type { ViewItem } from '../types'
+
+interface Props {
+  view: ViewItem
+  itemTag?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  itemTag: 'div'
 })
 </script>
 

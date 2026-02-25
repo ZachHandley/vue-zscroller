@@ -10,77 +10,136 @@
   </component>
 </template>
 
-<script setup>
-import { computed, onMounted, onUnmounted, nextTick, watch, useTemplateRef } from 'vue'
-import { useDynamicSize } from '../composables/useDynamicSize'
+<script setup lang="ts">
+import { computed, inject, onMounted, onUnmounted, nextTick, watch, useTemplateRef, type ComputedRef } from 'vue'
+import { useDynamicSize, type SharedResizeObserverLike } from '../composables/useDynamicSize'
 import { useSSRSafe } from '../composables/useSSRSafe'
+import type { DynamicScrollerItemProps, DynamicScrollerItemEmits } from '../types'
+import { useItemValidation } from '../composables/useAsyncItems'
 
-const props = withDefaults(defineProps(), {
+interface Props extends DynamicScrollerItemProps {}
+
+const props = withDefaults(defineProps<Props>(), {
   minItemSize: 50,
   watchData: false,
   tag: 'div',
-  emitResize: false
+  emitResize: false,
+  sizeDependencies: () => [],
+  active: false,
+  item: () => ({ size: 0 }),
+  dataIndex: 0
 })
 
-const emit = defineEmits(['resize'])
+const emit = defineEmits<DynamicScrollerItemEmits>()
+
+interface DynamicScrollerContext {
+  updateItemSize: (key: string | number, size: number) => void
+  removeItemSize: (key: string | number) => void
+  getItemSize: (key: string | number) => number
+  sharedResizeObserver?: SharedResizeObserverLike
+  direction?: ComputedRef<'vertical' | 'horizontal'>
+}
 
 // Refs using useTemplateRef for better type safety
-const element = useTemplateRef('element')
+const element = useTemplateRef<HTMLElement>('element')
 
 // SSR safety
 const { isClient } = useSSRSafe()
 
-// Dynamic size management
+// Resolve shared dynamic-scroller context when available
+const dynamicContext = inject<DynamicScrollerContext | null>('dynamicScrollerContext', null)
+
+// Utilities for consistent key handling
+const { getItemKey } = useItemValidation()
+
+const itemKey = computed(() => getItemKey(props.item, `dynamic-item-${props.dataIndex}`))
+
+// Dynamic size management with shared observer and direct size reporting
 const dynamicSize = useDynamicSize({
   minItemSize: props.minItemSize,
-  sizeDependencies: computed(() => props.sizeDependencies || []),
-  watchData: props.watchData,
-  active: computed(() => props.active)
+  direction: dynamicContext?.direction?.value ?? 'vertical',
+  sharedObserver: dynamicContext?.sharedResizeObserver ?? null,
+  onSizeChange: (size: number) => {
+    // Shared observer detected a size change -- report directly to parent.
+    // This replaces the old watch(itemSize) watcher.
+    if (props.active) {
+      syncMeasuredSize(size)
+    }
+  }
 })
 
 // Destructure dynamic size methods and state
 const {
-  itemSize,
   measureSize,
   updateSize,
-  setElement
+  setElement,
+  setCurrentSize
 } = dynamicSize
 
-// Computed styles
+// Computed styles — use correct axis based on direction from parent context
 const itemStyle = computed(() => {
-  if (!isClient.value) {
-    return {
-      minHeight: `${props.minItemSize || 50}px`
-    }
-  }
-
-  return {
-    minHeight: `${props.minItemSize || 50}px`
-  }
+  const dir = dynamicContext?.direction?.value ?? 'vertical'
+  const prop = dir === 'horizontal' ? 'minWidth' : 'minHeight'
+  return { [prop]: `${props.minItemSize || 50}px` }
 })
 
-// Watch for active changes to measure size
-watch(() => props.active, (newActive) => {
-  if (newActive && isClient.value) {
-    nextTick(() => {
-      updateSize()
-    })
-  }
-}, { immediate: true })
+const syncMeasuredSize = (sizeOverride?: number) => {
+  const resolvedSize = Math.max(sizeOverride ?? measureSize(), props.minItemSize)
 
-// Watch for data changes if enabled
-watch(() => props.item, () => {
-  if (props.watchData && props.active && isClient.value) {
-    nextTick(() => {
-      updateSize()
-    })
+  if (dynamicContext) {
+    dynamicContext.updateItemSize(itemKey.value, resolvedSize)
   }
-}, { deep: true })
 
-// Set element ref when mounted
+  if (props.emitResize) {
+    emit('resize', resolvedSize)
+  }
+}
+
+// Consolidated watcher: handle activation and item reference changes.
+// updateSize() already reports via onSizeChange → syncMeasuredSize, so
+// we don't call syncMeasuredSize separately (avoids double measurement).
+watch(
+  () => [props.active, props.item] as const,
+  ([newActive, newItem], [oldActive, oldItem]) => {
+    if (!isClient.value) return
+    if (newActive && (!oldActive || newItem !== oldItem)) {
+      // Became active, or item reference changed while active
+      nextTick(() => {
+        updateSize()
+      })
+    }
+  }
+)
+
+// Optional: watch sizeDependencies for content-driven size changes
+// Only active when watchData is true and sizeDependencies is provided.
+if (props.watchData) {
+  watch(
+    () => props.sizeDependencies,
+    () => {
+      if (props.active && isClient.value) {
+        nextTick(() => {
+          updateSize()
+        })
+      }
+    },
+    { deep: true }
+  )
+}
+
+// Set element ref when mounted — setElement registers with shared ResizeObserver,
+// which will fire initial callback. Do a direct initial measurement to avoid
+// waiting for the async observer callback.
 onMounted(() => {
   if (element.value) {
     setElement(element.value)
+    // Initial sync measurement — then sync currentSize so the SharedResizeObserver
+    // callback (which fires on the next frame) finds no change and skips re-reporting.
+    const size = measureSize()
+    if (size > props.minItemSize && dynamicContext) {
+      dynamicContext.updateItemSize(itemKey.value, size)
+      setCurrentSize(size)
+    }
   }
 })
 
@@ -88,6 +147,10 @@ onMounted(() => {
 onUnmounted(() => {
   if (element.value) {
     setElement(null)
+  }
+
+  if (dynamicContext) {
+    dynamicContext.removeItemSize(itemKey.value)
   }
 })
 

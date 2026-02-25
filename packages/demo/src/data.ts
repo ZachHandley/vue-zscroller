@@ -2,15 +2,33 @@ import { faker } from '@faker-js/faker'
 
 let uid = 0
 
-function generateItem() {
+interface GeneratedItem {
+  name: string
+  avatar: string
+}
+
+export interface DataItem {
+  id: number
+  index: number
+  type: 'letter' | 'person'
+  value: string | GeneratedItem
+  height: number
+}
+
+export interface MessageItem {
+  avatar: string
+  message: string
+}
+
+function generateItem(): GeneratedItem {
   return {
     name: faker.name.fullName(),
     avatar: faker.internet.avatar(),
   }
 }
 
-export function getData(count, letters) {
-  const raw = {}
+export function getData(count: number, letters: boolean): DataItem[] {
+  const raw: Record<string, GeneratedItem[]> = {}
 
   const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('')
 
@@ -24,7 +42,7 @@ export function getData(count, letters) {
     raw[letter].push(item)
   }
 
-  const list = []
+  const list: DataItem[] = []
   let index = 1
 
   for (const l of alphabet) {
@@ -52,7 +70,7 @@ export function getData(count, letters) {
   return list
 }
 
-export function addItem(list) {
+export function addItem(list: DataItem[]): void {
   list.push({
     id: uid++,
     index: list.length + 1,
@@ -62,7 +80,7 @@ export function addItem(list) {
   })
 }
 
-export function generateMessage() {
+export function generateMessage(): MessageItem {
   return {
     avatar: faker.internet.avatar(),
     message: faker.lorem.text(),

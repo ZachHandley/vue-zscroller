@@ -65,10 +65,15 @@
   </div>
 </template>
 
-<script>
-import { generateMessage } from '../data'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { generateMessage, type MessageItem } from '../data'
 
-const items = []
+interface DemoItem extends MessageItem {
+  id: number
+}
+
+const items: DemoItem[] = []
 for (let i = 0; i < 10000; i++) {
   items.push({
     id: i,
@@ -76,29 +81,17 @@ for (let i = 0; i < 10000; i++) {
   })
 }
 
-export default {
-  data () {
-    return {
-      items,
-      search: '',
-      dismissInfo: false,
-    }
-  },
+const search = ref('')
+const dismissInfo = ref(false)
 
-  computed: {
-    filteredItems () {
-      const { search, items } = this
-      if (!search) return items
-      const lowerCaseSearch = search.toLowerCase()
-      return items.filter(i => i.message.toLowerCase().includes(lowerCaseSearch))
-    },
-  },
+const filteredItems = computed(() => {
+  if (!search.value) return items
+  const lowerCaseSearch = search.value.toLowerCase()
+  return items.filter(i => i.message.toLowerCase().includes(lowerCaseSearch))
+})
 
-  methods: {
-    changeMessage (message) {
-      Object.assign(message, generateMessage())
-    },
-  },
+function changeMessage(message: DemoItem) {
+  Object.assign(message, generateMessage())
 }
 </script>
 
@@ -111,7 +104,8 @@ export default {
 }
 
 .scroller {
-  flex: auto 1 1;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .notice {

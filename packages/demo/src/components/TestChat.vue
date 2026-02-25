@@ -16,11 +16,10 @@
     </div>
 
     <DynamicScroller
-      ref="scroller"
       :items="items"
       :min-item-size="24"
+      stick-to-bottom
       class="scroller"
-      @resize="scrollToBottom()"
     >
       <template #default="{ item, index, active }">
         <DynamicScrollerItem
@@ -37,46 +36,38 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref } from 'vue'
 import { faker } from '@faker-js/faker'
 
-export default {
-  name: 'TestChat',
+interface ChatItem {
+  text: string
+  id: number
+}
 
-  data () {
-    return {
-      items: [],
-    }
-  },
+const items = ref<ChatItem[]>([])
 
-  methods: {
-    addItems (count = 1) {
-      for (let i = 0; i < count; i++) {
-        this.items.push({
-          text: faker.lorem.lines(),
-          id: this.items.length + 1,
-        })
-      }
-      this.scrollToBottom()
-    },
-
-    scrollToBottom () {
-      this.$refs.scroller.scrollToBottom()
-    },
-  },
+function addItems(count = 1) {
+  for (let i = 0; i < count; i++) {
+    items.value.push({
+      text: faker.lorem.lines(),
+      id: items.value.length + 1,
+    })
+  }
 }
 </script>
 
 <style scoped>
 .hello {
-  flex: 0 1 1;
+  flex: 1 1 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .scroller {
-  flex: auto 1 1;
+  flex: 1 1 0;
+  min-height: 0;
   border: 2px solid #ddd;
 }
 

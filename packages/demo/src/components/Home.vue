@@ -29,7 +29,7 @@
 
     <section>
       <a
-        href="https://github.com/Akryum/vue-virtual-scroller"
+        href="https://github.com/ZachHandley/zvue-virtual-scroller"
         class="route"
       >Documentation</a>
       <div class="description">

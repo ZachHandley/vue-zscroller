@@ -1,13 +1,14 @@
-# vue-virtual-scroller
+# zvue-virtual-scroller
 
-[![npm](https://img.shields.io/npm/v/vue-virtual-scroller.svg) ![npm](https://img.shields.io/npm/dm/vue-virtual-scroller.svg)](https://www.npmjs.com/package/vue-virtual-scroller)
+[![npm](https://img.shields.io/npm/v/zvue-virtual-scroller.svg) ![npm](https://img.shields.io/npm/dm/zvue-virtual-scroller.svg)](https://www.npmjs.com/package/zvue-virtual-scroller)
 [![vue3](https://img.shields.io/badge/vue-3.x-brightgreen.svg)](https://vuejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-supported-blue.svg)](https://www.typescriptlang.org/)
 
-Blazing fast scrolling of any amount of data | [Live demo](https://vue-virtual-scroller-demo.netlify.app/) | [Video demo](https://www.youtube.com/watch?v=Uzq1KQV8f4k)
+A modern fork of [vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller) with TypeScript and [@vueuse/core](https://github.com/vueuse/vueuse) integration.
 
-For Vue 2 support, see [here](https://github.com/Akryum/vue-virtual-scroller/tree/v1/packages/vue-virtual-scroller)
+**This is a fork of the original vue-virtual-scroller by [Guillaume Chau](https://github.com/Akryum). All credit for the core functionality goes to him. This fork modernizes the codebase with TypeScript and replaces custom utilities with @vueuse/core equivalents.**
 
-[💚️ Become a Sponsor](https://github.com/sponsors/Akryum)
+Blazing fast scrolling of any amount of data | [Original Live demo](https://vue-virtual-scroller-demo.netlify.app/) | [Video demo](https://www.youtube.com/watch?v=Uzq1KQV8f4k)
 
 ## Sponsors
 
@@ -20,11 +21,15 @@ For Vue 2 support, see [here](https://github.com/Akryum/vue-virtual-scroller/tre
 # Installation
 
 ```
-npm install --save vue-virtual-scroller@next
+npm install --save zvue-virtual-scroller
 ```
 
 ```
-yarn add vue-virtual-scroller@next
+yarn add zvue-virtual-scroller
+```
+
+```
+pnpm add zvue-virtual-scroller
 ```
 
 ## Default import
@@ -32,7 +37,7 @@ yarn add vue-virtual-scroller@next
 Install all the components:
 
 ```javascript
-import VueVirtualScroller from 'vue-virtual-scroller'
+import VueVirtualScroller from 'zvue-virtual-scroller'
 
 app.use(VueVirtualScroller)
 ```
@@ -40,24 +45,24 @@ app.use(VueVirtualScroller)
 Use specific components:
 
 ```javascript
-import { RecycleScroller } from 'vue-virtual-scroller'
+import { RecycleScroller } from 'zvue-virtual-scroller'
 
 app.component('RecycleScroller', RecycleScroller)
 ```
 
-**⚠️ The line below should be included when importing the package:**
+**The line below should be included when importing the package:**
 
 ```js
-import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
+import 'zvue-virtual-scroller/dist/zvue-virtual-scroller.css'
 ```
 
 ## Browser
 
 ```html
-<link rel="stylesheet" href="vue-virtual-scroller/dist/vue-virtual-scroller.css"/>
+<link rel="stylesheet" href="zvue-virtual-scroller/dist/zvue-virtual-scroller.css"/>
 
 <script src="vue.js"></script>
-<script src="vue-virtual-scroller/dist/vue-virtual-scroller.min.js"></script>
+<script src="zvue-virtual-scroller/dist/zvue-virtual-scroller.min.js"></script>
 ```
 
 Install the component:
@@ -76,7 +81,7 @@ app.component('RecycleScroller', VueVirtualScroller.RecycleScroller)
 
 ## Modern Vue 3 Features
 
-This version of `vue-virtual-scroller` has been enhanced with modern Vue 3 features and optimizations:
+This version of `zvue-virtual-scroller` has been enhanced with modern Vue 3 features and optimizations:
 
 ### Key Improvements
 
@@ -94,11 +99,11 @@ The library now exports enhanced composables for advanced use cases:
 
 ```typescript
 import {
-  useVirtualScrollCore,
   useSlotRefManager,
+  useVirtualScrollCore,
   useVirtualScrollPerformance,
   useSSRSafeEnhanced
-} from 'vue-virtual-scroller'
+} from 'zvue-virtual-scroller'
 
 // Advanced slot management with automatic cleanup
 const slotManager = useSlotRefManager({
@@ -107,7 +112,7 @@ const slotManager = useSlotRefManager({
 })
 
 // Performance monitoring and optimization
-const performance = useVirtualScrollPerformance({
+const perf = useVirtualScrollPerformance({
   enableScrollDebounce: true,
   scrollDebounceMs: 16,
   enableRequestIdleCallback: true
@@ -119,21 +124,29 @@ const { useSSRSafeStorage, useSSRSafeViewport } = useSSRSafeEnhanced()
 
 ### Performance Monitoring
 
-All components now expose performance monitoring methods:
+Performance monitoring is available via the `useVirtualScrollPerformance` composable:
 
 ```typescript
-// Access performance stats
-const scroller = ref()
-const stats = scroller.value.getPerformanceStats()
+import { useVirtualScrollPerformance } from 'zvue-virtual-scroller'
 
-// Monitor slot usage
-const slotStats = scroller.value.getSlotStats()
+const perf = useVirtualScrollPerformance({
+  enableScrollDebounce: true,
+  enableRequestIdleCallback: true
+})
+
+// Access performance stats
+const stats = perf.getPerformanceStats()
 
 // Reset metrics
-scroller.value.resetPerformanceMetrics()
+perf.resetMetrics()
+
+// Reactive state
+console.log(perf.isScrolling.value)
+console.log(perf.scrollDirection.value)
+console.log(perf.scrollVelocity.value)
 ```
 
-There are several components provided by `vue-virtual-scroller`:
+There are several components provided by `zvue-virtual-scroller`:
 
 [RecycleScroller](#recyclescroller) is a component that only renders the visible items in your list. It also re-uses components and dom elements to be as efficient and performant as possible.
 
@@ -141,7 +154,7 @@ There are several components provided by `vue-virtual-scroller`:
 
 [DynamicScrollerItem](#dynamicscrolleritem) must wrap each item in a DynamicScroller to handle size computations.
 
-[IdState](#idstate) is a mixin that ease the local state management in reused components inside a RecycleScroller.
+[useIdState](#useidstate) is a composable that eases local state management in reused components inside a RecycleScroller.
 
 ## RecycleScroller
 
@@ -166,12 +179,12 @@ Use the scoped slot to render each item in the list:
   </RecycleScroller>
 </template>
 
-<script>
-export default {
-  props: {
-    list: Array,
-  },
+<script setup lang="ts">
+interface Props {
+  list: Array<{ id: string; name: string }>
 }
+
+defineProps<Props>()
 </script>
 
 <style scoped>
@@ -180,7 +193,7 @@ export default {
 }
 
 .user {
-  height: 32%;
+  height: 32px;
   padding: 0 12px;
   display: flex;
   align-items: center;
@@ -190,8 +203,8 @@ export default {
 
 ### Important notes
 
-- **⚠️ You need to set the size of the virtual-scroller element and the items elements (for example, with CSS). Unless you are using [variable size mode](#variable-size-mode), all items should have the same height (or width in horizontal mode) to prevent display glitches.**
-- **⚠️ If the items are objects, the scroller needs to be able to identify them. By default it will look for an `id` field on the items. This can be configured with the `keyField` prop if you are using another field name.**
+- **You need to set the size of the virtual-scroller element and the items elements (for example, with CSS). Unless you are using [variable size mode](#variable-size-mode), all items should have the same height (or width in horizontal mode) to prevent display glitches.**
+- **If the items are objects, the scroller needs to be able to identify them. By default it will look for an `id` field on the items. This can be configured with the `keyField` prop if you are using another field name.**
 - It is not recommended to use functional components inside RecycleScroller since the components are reused (so it will actually be slower).
 - The list item components must be reactive to the `item` prop being updated without being re-created (use computed props or watchers to properly react to props changes!).
 - You don't need to set `key` on list content (but you should on all nested `<img>` elements to prevent load glitches).
@@ -251,15 +264,44 @@ When the user scrolls inside RecycleScroller, the views are mostly just moved ar
 - `itemClass` (default: `''`): custom classes added to each item.
 - `listTag` (default: `'div'`): the element to render as the list's wrapper.
 - `itemTag` (default: `'div'`): the element to render as the list item (the direct parent of the default slot content).
+- `disableTransform` (default: `false`): disable the use of CSS `transform` for positioning items. When enabled, items are positioned using `top`/`left` instead of `translateX`/`translateY`. Useful when transforms interfere with nested positioned elements.
+- `skipHover` (default: `false`): disable the hover class management on item views. Use this to improve performance when hover effects are not needed.
+- `startAtBottom` (default: `false`): start the scroller scrolled to the bottom. Useful for chat-like interfaces.
+- `initialScrollPercent` (default: `null`): set an initial scroll position as a percentage (0 to 1). For example, `0.5` starts in the middle of the list.
 
 ### Events
 
 - `resize`: emitted when the size of the scroller changes.
 - `visible`: emitted when the scroller considers itself to be visible in the page.
 - `hidden`: emitted when the scroller is hidden in the page.
-- `update (startIndex, endIndex, visibleStartIndex, visibleEndIndex)`: emitted each time the views are updated, only if `emitUpdate` prop is `true`
+- `update`: emitted each time the views are updated, only if `emitUpdate` prop is `true`. The handler receives a single `UpdateEvent` object:
+
+  ```typescript
+  interface UpdateEvent {
+    startIndex: number
+    endIndex: number
+    visibleStartIndex: number
+    visibleEndIndex: number
+  }
+
+  // Usage:
+  function onUpdate(event: UpdateEvent) {
+    console.log(event.startIndex, event.endIndex)
+    console.log(event.visibleStartIndex, event.visibleEndIndex)
+  }
+  ```
+
 - `scroll-start`: emitted when the first item is rendered.
 - `scroll-end`: emitted when the last item is rendered.
+
+### Methods (via template ref)
+
+- `scrollToItem(index)`: scroll to the item at the given index.
+- `scrollToPosition(position)`: scroll to the given pixel position.
+- `scrollToBottom()`: scroll to the bottom of the list.
+- `scrollToPercent(percent)`: scroll to a position expressed as a percentage (0 to 1). For example, `scrollToPercent(0.5)` scrolls to the middle.
+- `updateVisibleItems()`: force an update of the visible items.
+- `reset()`: reset the scroller state (clears indices, stops scrolling, and recycles all views).
 
 ### Default scoped slot props
 
@@ -275,10 +317,27 @@ When the user scrolls inside RecycleScroller, the views are mostly just moved ar
   <wrapper>
     <!-- Reused view pools here -->
     <slot name="empty"></slot>
+    <slot name="empty-item" :index="index"></slot>
   </wrapper>
   <slot name="after"></slot>
 </main>
 ```
+
+- `before`: content rendered before the item list wrapper.
+- `after`: content rendered after the item list wrapper.
+- `empty`: content rendered when the items list is empty.
+- `empty-item`: skeleton placeholder rendered for items that are `null` or `undefined` in the items array. Receives an `{ index }` slot prop. Useful for showing loading placeholders:
+
+  ```html
+  <RecycleScroller :items="items" :item-size="50">
+    <template #default="{ item }">
+      <div>{{ item.name }}</div>
+    </template>
+    <template #empty-item="{ index }">
+      <div class="skeleton-row">Loading item {{ index }}...</div>
+    </template>
+  </RecycleScroller>
+  ```
 
 Example:
 
@@ -320,11 +379,11 @@ The page mode expands the virtual-scroller and uses the page viewport to compute
 
 ### Variable size mode
 
-**⚠️ This mode can be performance heavy with a lot of items. Use with caution.**
+**This mode can be performance heavy with a lot of items. Use with caution.**
 
 If the `itemSize` prop is not set or is set to `null`, the virtual scroller will switch to variable size mode. You then need to expose a number field on the item objects with the size of the item element.
 
-**⚠️ You still need to set the size of the items with CSS correctly (with classes for example).**
+**You still need to set the size of the items with CSS correctly (with classes for example).**
 
 Use the `sizeField` prop (default is `'size'`) to set the field used by the scroller to get the size for each item.
 
@@ -408,12 +467,12 @@ This works just like the RecycleScroller, but it can render items with unknown s
   </DynamicScroller>
 </template>
 
-<script>
-export default {
-  props: {
-    items: Array,
-  },
+<script setup lang="ts">
+interface Props {
+  items: Array<{ id: string; avatar: string; message: string }>
 }
+
+defineProps<Props>()
 </script>
 
 <style scoped>
@@ -464,21 +523,21 @@ The component that should wrap all the items in a DynamicScroller.
 
 - `resize`: emitted each time the size is recomputed, only if `emitResize` prop is `true`.
 
-## IdState
+## useIdState
 
-This is convenience mixin that can replace `data` in components being rendered in a RecycleScroller.
+The `useIdState` composable replaces the legacy `IdState` mixin for managing per-item local state in reused components inside a RecycleScroller.
 
 ### Why is this useful?
 
-Since the components in RecycleScroller are reused, you can't directly use the Vue standard `data` properties: otherwise they will be shared with different items in the list!
+Since the components in RecycleScroller are reused, you can't directly use Vue's reactive `ref` or `reactive` state per-item: otherwise the state will be shared with different items in the list!
 
-IdState will instead provide an `idState` object which is equivalent to `$data`, but it's linked to a single item with its identifier (you can change which field with `idProp` param).
+`useIdState` provides a state object that is scoped to each item by its identifier. When the component is reused for a different item, the state automatically switches to that item's stored state.
 
 ### Example
 
-In this example, we use the `id` of the `item` to have a "scoped" state to the item:
+In this example, we use the `id` of the `item` to have a "scoped" state per item:
 
-```html
+```vue
 <template>
   <div class="question">
     <p>{{ item.question }}</p>
@@ -491,57 +550,60 @@ In this example, we use the `id` of the `item` to have a "scoped" state to the i
   </div>
 </template>
 
-<script>
-import { IdState } from 'vue-virtual-scroller'
+<script setup lang="ts">
+import { getCurrentInstance } from 'vue'
+import { useIdState } from 'zvue-virtual-scroller'
 
-export default {
-  mixins: [
-    IdState({
-      // You can customize this
-      idProp: vm => vm.item.id,
-    }),
-  ],
-
-  props: {
-    // Item in the list
-    item: Object,
-  },
-
-  // This replaces data () { ... }
-  idState () {
-    return {
-      replyOpen: false,
-      replyText: '',
-    }
-  },
+interface Props {
+  item: { id: number; question: string }
 }
+
+const props = defineProps<Props>()
+
+interface ReplyState {
+  replyOpen: boolean
+  replyText: string
+}
+
+const { idState, setup } = useIdState<ReplyState>({
+  idProp: vm => vm.item.id,
+  initialState: () => ({
+    replyOpen: false,
+    replyText: '',
+  }),
+})
+
+setup(getCurrentInstance()?.proxy)
 </script>
 ```
 
-### Parameters
+### Options
 
-- `idProp` (default: `vm => vm.item.id`): field name on the component (for example: `'id'`) or function returning the id.
+- `idProp` (default: `vm => vm.item.id`): field name on the component instance (for example: `'id'`) or function returning the id from the component proxy.
+- `initialState`: factory function returning the default state for a new item.
 
 ---
 
 ## Migration Guide
 
-### From v2.0.0-beta.8 to v2.0.0-modern
+### From vue-virtual-scroller v2.0.0-beta.8 to zvue-virtual-scroller v1.0.0
 
 This version includes significant improvements and modernizations. Here's what you need to know:
 
 #### Breaking Changes
 
-1. **TypeScript is now first-class**: All components are written in TypeScript with full type definitions
-2. **@vueuse/core dependency**: The library now depends on @vueuse/core for enhanced functionality
-3. **Composable API changes**: Some internal composables have been enhanced with @vueuse/core integration
+1. **Package name**: Import from `zvue-virtual-scroller` instead of `vue-virtual-scroller`
+2. **TypeScript is now first-class**: All components are written in TypeScript with full type definitions
+3. **@vueuse/core dependency**: The library now depends on @vueuse/core for enhanced functionality
+4. **IdState mixin removed**: Use the `useIdState` composable instead (see [useIdState](#useidstate))
+5. **`update` event signature changed**: The event now emits a single `UpdateEvent` object instead of 4 positional arguments
 
 #### Non-Breaking Changes
 
 1. **Same component API**: All existing props and events remain unchanged
 2. **Enhanced performance**: Better scroll handling and memory management
 3. **Improved SSR**: Better server-side rendering compatibility
-4. **Performance monitoring**: New methods for monitoring performance metrics
+4. **Performance monitoring**: New composable for monitoring performance metrics
 
 #### New Features
 
@@ -549,10 +611,13 @@ This version includes significant improvements and modernizations. Here's what y
 2. **Advanced slot management**: Automatic memory cleanup with WeakMap support
 3. **Performance optimizations**: RAF scheduling and idle callback support
 4. **Enhanced SSR utilities**: Comprehensive server-side rendering support
+5. **Skeleton loading**: `empty-item` slot for showing placeholders for null/undefined items
+6. **New props**: `disableTransform`, `skipHover`, `startAtBottom`, `initialScrollPercent`
+7. **New methods**: `scrollToPercent(percent)`, `reset()`
 
 #### Code Examples
 
-**Before:**
+**Before (vue-virtual-scroller):**
 ```vue
 <template>
   <RecycleScroller
@@ -578,7 +643,7 @@ export default {
 </script>
 ```
 
-**After (Enhanced with TypeScript):**
+**After (zvue-virtual-scroller with TypeScript):**
 ```vue
 <template>
   <RecycleScroller
@@ -595,7 +660,7 @@ export default {
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { RecycleScroller } from 'vue-virtual-scroller'
+import { RecycleScroller } from 'zvue-virtual-scroller'
 
 interface Item {
   id: string
@@ -603,10 +668,7 @@ interface Item {
 }
 
 const items = ref<Item[]>([])
-const scrollerRef = ref()
-
-// Access performance metrics
-const performanceStats = scrollerRef.value?.getPerformanceStats()
+const scrollerRef = ref<InstanceType<typeof RecycleScroller>>()
 </script>
 ```
 

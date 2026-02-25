@@ -1,12 +1,11 @@
 <template>
   <nav class="menu">
     <span class="package">
-      <span class="package-name">vue-virtual-scroller</span>
+      <span class="package-name">zvue-virtual-scroller</span>
     </span>
 
     <router-link
       :to="{ name: 'home' }"
-      exact
     >
       Home
     </router-link>
@@ -30,6 +29,12 @@
     </router-link>
     <router-link :to="{ name: 'grid' }">
       Grid demo
+    </router-link>
+    <router-link :to="{ name: 'grid-scroller' }">
+      GridScroller
+    </router-link>
+    <router-link :to="{ name: 'skeleton' }">
+      Skeleton demo
     </router-link>
   </nav>
   <router-view />
@@ -159,5 +164,11 @@ body {
 
 .avatar {
   background: grey;
+}
+
+#app > :last-child {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
 }
 </style>

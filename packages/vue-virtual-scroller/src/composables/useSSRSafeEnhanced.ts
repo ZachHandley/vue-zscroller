@@ -1,13 +1,13 @@
-import { ref, computed, onMounted, onUnmounted, nextTick, inject, provide } from 'vue'
-import { useLocalStorage, useSessionStorage, useStorage } from './useStorage'
+import { ref, computed } from 'vue'
+import { useLocalStorage, useSessionStorage, useStorage } from '@vueuse/core'
 import { useSSRSafe } from './useSSRSafe'
-import type { Ref, ComputedRef } from 'vue'
+import type { Ref } from 'vue'
+
+const _isClient = typeof window !== 'undefined'
 
 // SSR-safe storage utilities
 export function useSSRSafeLocalStorage<T>(key: string, defaultValue: T): Ref<T> {
-  const { isClient } = useSSRSafe()
-
-  if (!isClient.value) {
+  if (!_isClient) {
     return ref(defaultValue) as Ref<T>
   }
 
@@ -15,9 +15,7 @@ export function useSSRSafeLocalStorage<T>(key: string, defaultValue: T): Ref<T> 
 }
 
 export function useSSRSafeSessionStorage<T>(key: string, defaultValue: T): Ref<T> {
-  const { isClient } = useSSRSafe()
-
-  if (!isClient.value) {
+  if (!_isClient) {
     return ref(defaultValue) as Ref<T>
   }
 
@@ -25,9 +23,7 @@ export function useSSRSafeSessionStorage<T>(key: string, defaultValue: T): Ref<T
 }
 
 export function useSSRSafeStorage<T>(key: string, defaultValue: T): Ref<T> {
-  const { isClient } = useSSRSafe()
-
-  if (!isClient.value) {
+  if (!_isClient) {
     return ref(defaultValue) as Ref<T>
   }
 
@@ -189,7 +185,6 @@ export function useSSRSafeDocument() {
 
 // SSR-safe viewport utilities
 export function useSSRSafeViewport() {
-  const { isClient } = useSSRSafe()
   const window = useSSRSafeWindow()
 
   const viewportWidth = computed(() => window.value.innerWidth)
@@ -211,7 +206,6 @@ export function useSSRSafeViewport() {
 // SSR-safe device detection
 export function useSSRSafeDevice() {
   const { isClient } = useSSRSafe()
-  const window = useSSRSafeWindow()
 
   const userAgent = computed(() => {
     if (!isClient.value) {
@@ -254,7 +248,6 @@ export function useSSRSafeDevice() {
 // SSR-safe animation frame
 export function useSSRSafeRaf() {
   const { isClient } = useSSRSafe()
-  const callbacks = ref<Set<() => void>>(new Set())
 
   const requestRaf = (callback: FrameRequestCallback) => {
     if (!isClient.value) {
@@ -288,13 +281,43 @@ export function useSSRSafeIntersection() {
       callback({
         isIntersecting: true,
         intersectionRatio: 1,
-        boundingClientRect: element.getBoundingClientRect(),
-        intersectionRect: element.getBoundingClientRect(),
+        boundingClientRect: typeof element.getBoundingClientRect === 'function'
+          ? element.getBoundingClientRect()
+          : ({
+            width: 0,
+            height: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            x: 0,
+            y: 0,
+            toJSON: () => ({})
+          } as DOMRect),
+        intersectionRect: typeof element.getBoundingClientRect === 'function'
+          ? element.getBoundingClientRect()
+          : ({
+            width: 0,
+            height: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            x: 0,
+            y: 0,
+            toJSON: () => ({})
+          } as DOMRect),
         rootBounds: { width: 1024, height: 768, top: 0, left: 0, right: 1024, bottom: 768, x: 0, y: 0, toJSON: () => ({}) },
         target: element,
-        time: performance.now()
+        time: (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now()
       } as IntersectionObserverEntry)
       return { disconnect: () => {} }
+    }
+
+    if (typeof IntersectionObserver === 'undefined') {
+      return {
+        disconnect: () => {}
+      }
     }
 
     const observer = new IntersectionObserver((entries) => {

@@ -1,61 +1,60 @@
 {
-  "name": "vue-virtual-scroller",
-  "version": "2.0.0-beta.8",
-  "description": "Smooth scrolling for any amount of data",
+  "name": "zvue-virtual-scroller",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A modern fork of vue-virtual-scroller with TypeScript and @vueuse/core integration",
   "author": {
     "name": "Guillaume Chau",
     "email": "guillaume.b.chau@gmail.com"
   },
+  "maintainer": {
+    "name": "Zach Handley",
+    "email": "zachhandley@gmail.com"
+  },
   "license": "MIT",
-  "homepage": "https://github.com/Akryum/vue-virtual-scroller#readme",
+  "homepage": "https://github.com/ZachHandley/zvue-virtual-scroller#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Akryum/vue-virtual-scroller.git"
+    "url": "git+https://github.com/ZachHandley/zvue-virtual-scroller.git"
   },
   "bugs": {
-    "url": "https://github.com/Akryum/vue-virtual-scroller/issues"
+    "url": "https://github.com/ZachHandley/zvue-virtual-scroller/issues"
   },
   "keywords": [
     "vue",
     "vuejs",
     "plugin"
   ],
-  "main": "dist/vue-virtual-scroller.umd.js",
-  "module": "dist/vue-virtual-scroller.esm.js",
-  "unpkg": "dist/vue-virtual-scroller.min.js",
+  "main": "dist/zvue-virtual-scroller.umd.js",
+  "module": "dist/zvue-virtual-scroller.esm.mjs",
+  "unpkg": "dist/zvue-virtual-scroller.min.js",
+  "sideEffects": true,
+  "exports": {
+    ".": {
+      "import": "./dist/zvue-virtual-scroller.esm.mjs",
+      "require": "./dist/zvue-virtual-scroller.umd.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "npm run build:browser && npm run build:es && npm run build:umd",
-    "build:browser": "rollup --config build/rollup.config.browser.js",
-    "build:es": "rollup --config build/rollup.config.es.js",
-    "build:umd": "rollup --config build/rollup.config.umd.js",
-    "prepublishOnly": "npm run lint && npm run build",
-    "dev": "cross-env NODE_ENV=development rollup --config build/rollup.config.es.js --watch",
-    "lint": "cd ../../ && yarn run lint"
+    "build": "vite build",
+    "prepublishOnly": "pnpm run lint && pnpm run build",
+    "dev": "vite build --watch",
+    "lint": "cd ../../ && pnpm run lint"
   },
   "peerDependencies": {
     "vue": "^3.4.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@vueuse/core": "^10.11.1"
+  },
   "devDependencies": {
-    "@babel/core": "^7.26.10",
-    "@rollup/plugin-babel": "^6.0.4",
-    "@rollup/plugin-commonjs": "^28.0.1",
-    "@rollup/plugin-node-resolve": "^16.0.0",
-    "@rollup/plugin-replace": "^5.0.7",
-    "@rollup/plugin-typescript": "^12.1.3",
-    "@vue/compiler-sfc": "^3.5.13",
-    "autoprefixer": "^10.4.20",
-    "clean-css": "^5.3.3",
-    "cross-env": "^7.0.3",
-    "fs-extra": "^11.3.0",
-    "rollup": "^2.79.2",
-    "rollup-plugin-css-only": "^4.5.2",
-    "rollup-plugin-terser": "^7.0.2",
-    "unplugin-vue": "^7.0.1",
-    "typescript": "^5.7.3",
+    "@vitejs/plugin-vue": "^4.6.2",
+    "vite": "^5.4.10",
+    "vite-plugin-dts": "^3.9.1",
     "vue": "^3.5.13",
     "vue-tsc": "^2.2.8"
   },

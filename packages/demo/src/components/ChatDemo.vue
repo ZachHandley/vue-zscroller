@@ -21,9 +21,9 @@
     </div>
 
     <DynamicScroller
-      ref="scroller"
       :items="filteredItems"
       :min-item-size="54"
+      stick-to-bottom
       class="scroller"
     >
       <template #before>
@@ -66,84 +66,73 @@
   </div>
 </template>
 
-<script>
-import { generateMessage } from '../data'
+<script setup lang="ts">
+import { ref, computed, onUnmounted } from 'vue'
+import { generateMessage, type MessageItem } from '../data'
+
+interface ChatItem extends MessageItem {
+  id: number
+}
 
 let id = 0
 
-const messages = []
+const messages: MessageItem[] = []
 for (let i = 0; i < 10000; i++) {
   messages.push(generateMessage())
 }
 
-export default {
-  data () {
-    return {
-      items: [],
-      search: '',
-      streaming: false,
-    }
-  },
+const items = ref<ChatItem[]>([])
+const search = ref('')
+const streaming = ref(false)
+const filteredItems = computed(() => {
+  if (!search.value) return items.value
+  const lowerCaseSearch = search.value.toLowerCase()
+  return items.value.filter(i => i.message.toLowerCase().includes(lowerCaseSearch))
+})
 
-  computed: {
-    filteredItems () {
-      const { search, items } = this
-      if (!search) return items
-      const lowerCaseSearch = search.toLowerCase()
-      return items.filter(i => i.message.toLowerCase().includes(lowerCaseSearch))
-    },
-  },
-
-  unmounted () {
-    this.stopStream()
-  },
-
-  methods: {
-    changeMessage (message) {
-      Object.assign(message, generateMessage())
-    },
-
-    addMessage () {
-      for (let i = 0; i < 10; i++) {
-        this.items.push({
-          id: id++,
-          ...messages[id % 10000],
-        })
-      }
-      this.scrollToBottom()
-
-      if (this.streaming) {
-        requestAnimationFrame(this.addMessage)
-      }
-    },
-
-    scrollToBottom () {
-      this.$refs.scroller.scrollToBottom()
-    },
-
-    startStream () {
-      if (this.streaming) return
-      this.streaming = true
-      this.addMessage()
-    },
-
-    stopStream () {
-      this.streaming = false
-    },
-  },
+function changeMessage(message: ChatItem) {
+  Object.assign(message, generateMessage())
 }
+
+function addMessage() {
+  for (let i = 0; i < 10; i++) {
+    items.value.push({
+      id: id++,
+      ...messages[id % 10000],
+    })
+  }
+
+  if (streaming.value) {
+    setTimeout(addMessage, 200)
+  }
+}
+
+function startStream() {
+  if (streaming.value) return
+  streaming.value = true
+  addMessage()
+}
+
+function stopStream() {
+  streaming.value = false
+}
+
+onUnmounted(() => {
+  stopStream()
+})
 </script>
 
 <style scoped>
 .chat-demo {
+  height: 100%;
   overflow: hidden;
-  flex: auto 1 1;
   display: flex;
   flex-direction: column;
 }
 
 .scroller {
-  flex: auto 1 1;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .notice {

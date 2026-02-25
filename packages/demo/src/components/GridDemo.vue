@@ -1,19 +1,20 @@
-<script>
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import { getData } from '../data'
+import type { DataItem } from '../data'
 
-export default {
-  data () {
-    return {
-      list: [],
-      gridItems: 6,
-      scrollTo: 500,
-    }
-  },
+const list = ref<DataItem[]>([])
+const gridItems = ref(6)
+const scrollTo = ref(500)
+const itemSecondarySize = 100
 
-  mounted () {
-    this.list = getData(5000)
-  },
-}
+const scroller = ref<any>(null)
+
+const scrollerMinWidth = computed(() => `${gridItems.value * itemSecondarySize}px`)
+
+onMounted(() => {
+  list.value = getData(5000, false)
+})
 </script>
 
 <template>
@@ -35,7 +36,7 @@ export default {
         max="20"
       >
       <span>
-        <button @mousedown="$refs.scroller.scrollToItem(scrollTo)">Scroll To: </button>
+        <button @mousedown="scroller?.scrollToItem(scrollTo)">Scroll To: </button>
         <input
           v-model.number="scrollTo"
           type="number"
@@ -48,10 +49,11 @@ export default {
     <RecycleScroller
       ref="scroller"
       class="scroller"
+      :style="{ minWidth: scrollerMinWidth }"
       :items="list"
       :item-size="128"
       :grid-items="gridItems"
-      :item-secondary-size="100"
+      :item-secondary-size="itemSecondarySize"
     >
       <template #default="{ item, index }">
         <div class="item">
@@ -77,6 +79,7 @@ export default {
 .wrapper {
   display: flex;
   flex-direction: column;
+  overflow-x: auto;
 }
 
 .toolbar {
@@ -84,7 +87,12 @@ export default {
 }
 
 .scroller {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.scroller :deep(.vue-recycle-scroller__item-wrapper) {
+  overflow: visible;
 }
 
 .scroller :deep(.hover) img {

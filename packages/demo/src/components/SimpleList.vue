@@ -17,11 +17,11 @@
 
     <DynamicScroller
       v-if="dynamic"
-      :items="filteredItems"
+      :items="objectItems"
       :min-item-size="54"
       class="scroller"
     >
-      <template #before-container>
+      <template #before>
         <div class="notice">
           Array of simple strings (no objects).
         </div>
@@ -37,7 +37,7 @@
           class="message"
         >
           <div class="text">
-            {{ item }}
+            {{ item.message }}
           </div>
           <div class="index">
             <span>{{ index }} (index)</span>
@@ -66,44 +66,50 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, computed } from 'vue'
 import { generateMessage } from '../data'
 
-const items = []
-for (let i = 0; i < 10000; i++) {
-  items.push(generateMessage().message)
-}
+const items = Array.from({ length: 10000 }, () => generateMessage().message)
 
-export default {
-  data () {
-    return {
-      items,
-      search: '',
-      dynamic: true,
-    }
-  },
+const search = ref('')
+const dynamic = ref(true)
 
-  computed: {
-    filteredItems () {
-      const { search, items } = this
-      if (!search) return items
-      const lowerCaseSearch = search.toLowerCase()
-      return items.filter(i => i.toLowerCase().includes(lowerCaseSearch))
-    },
-  },
-}
+const filteredItems = computed(() => {
+  if (!search.value) return items
+  const lowerCaseSearch = search.value.toLowerCase()
+  return items.filter(i => i.toLowerCase().includes(lowerCaseSearch))
+})
+
+const objectItems = computed(() =>
+  filteredItems.value.map((msg, i) => ({ id: i, message: typeof msg === 'string' ? msg : String(msg) }))
+)
 </script>
 
 <style scoped>
 .dynamic-scroller-demo {
-  flex: auto 1 1;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .scroller {
-  flex: auto 1 1;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.scroller {
+  border: solid 1px #42b983;
+}
+
+.toolbar {
+  flex: auto 0 0;
+  text-align: center;
+}
+
+.toolbar > *:not(:last-child) {
+  margin-right: 24px;
 }
 
 .notice {
@@ -119,13 +125,17 @@ export default {
   box-sizing: border-box;
 }
 
-.index,
-.text {
+.text,
+.index {
   flex: 1;
 }
 
 .text {
   max-width: 400px;
+}
+
+.index {
+  opacity: .5;
 }
 
 .index span {
