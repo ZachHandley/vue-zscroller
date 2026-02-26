@@ -23,7 +23,7 @@ export interface MessageItem {
 function generateItem(): GeneratedItem {
   return {
     name: faker.name.fullName(),
-    avatar: faker.internet.avatar(),
+    avatar: 'https://picsum.photos/50/50',
   }
 }
 
@@ -82,7 +82,7 @@ export function addItem(list: DataItem[]): void {
 
 export function generateMessage(): MessageItem {
   return {
-    avatar: faker.internet.avatar(),
+    avatar: 'https://picsum.photos/50/50',
     message: faker.lorem.text(),
   }
 }

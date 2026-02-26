@@ -20,6 +20,7 @@
     :initial-scroll-percent="initialScrollPercent"
     :stick-to-bottom="stickToBottom"
     :stick-to-bottom-threshold="stickToBottomThreshold"
+    :skeleton-while-scrolling="skeletonWhileScrolling"
     v-bind="$attrs"
     @resize="handleScrollerResize"
     @visible="handleScrollerVisible"
@@ -58,6 +59,10 @@
       </slot>
     </template>
 
+    <template #skeleton="slotProps">
+      <slot name="skeleton" v-bind="slotProps" />
+    </template>
+
     <template #before>
       <slot name="before" />
     </template>
@@ -86,7 +91,7 @@ const props = withDefaults(defineProps<Props>(), {
   direction: 'vertical',
   pageMode: false,
   prerender: 0,
-  buffer: 200,
+  buffer: 500,
   emitUpdate: false,
   updateInterval: 0,
   listClass: '',
@@ -99,7 +104,8 @@ const props = withDefaults(defineProps<Props>(), {
   startAtBottom: false,
   initialScrollPercent: null,
   stickToBottom: false,
-  stickToBottomThreshold: 50
+  stickToBottomThreshold: 50,
+  skeletonWhileScrolling: false
 })
 
 const emit = defineEmits<DynamicScrollerEmits>()
@@ -176,12 +182,20 @@ const _pendingSizeUpdates = new Map<string | number, number>()
 const sizeVersion = ref(0)
 let _pendingFlush = false
 
+// Track which keys had their sizes change in the last flush — used by
+// itemsWithSize to do an O(changed) patch instead of O(N) full scan.
+const _dirtyKeys = new Set<string | number>()
+// When true, forces itemsWithSize to do a full rebuild (items list changed,
+// not just sizes). Reset after each computed evaluation.
+let _forceFullRebuild = false
+
 const _flushSizeUpdates = () => {
   _pendingFlush = false
   let changed = false
   for (const [key, size] of _pendingSizeUpdates) {
     if (_sizeMap.get(key) !== size) {
       _sizeMap.set(key, size)
+      _dirtyKeys.add(key)
       changed = true
     }
   }
@@ -191,10 +205,22 @@ const _flushSizeUpdates = () => {
   }
 }
 
+// Schedule flush using microtask to ensure size updates are flushed
+// within the same frame, preventing one-frame delays and visible settling jitter.
+const _scheduleFlush = () => {
+  if (_pendingFlush) return
+  _pendingFlush = true
+  queueMicrotask(_flushSizeUpdates)
+}
+
 // Memoized itemsWithSize: reuse wrapper objects when item reference and size
 // haven't changed. This prevents the reactive cascade where a single size
 // change creates N new wrapper objects, triggering RecycleScroller's items
 // watcher and DynamicScrollerItem watchers for every visible item.
+//
+// Optimisation: when only sizes changed (not the items list), we use the
+// _dirtyKeys set to patch only the changed entries in O(dirty) time, then
+// splice them into the existing cached array, avoiding O(N) iteration.
 interface ItemWithSize {
   id: string | number
   item: VirtualScrollerItem | null | undefined
@@ -203,14 +229,48 @@ interface ItemWithSize {
 }
 let _cachedItemsWithSize: ItemWithSize[] = []
 let _cachedKeyMap = new Map<string | number, ItemWithSize>()
+// Index lookup: key -> position in _cachedItemsWithSize for O(1) patching
+let _cachedKeyIndex = new Map<string | number, number>()
 
 const itemsWithSize = computed(() => {
   // Read sizeVersion to establish reactivity dependency
   const _v = sizeVersion.value
   void _v
 
+  // Fast path: only sizes changed (not the items list). Patch just the dirty
+  // entries in O(dirty) time instead of scanning all N items.
+  if (!_forceFullRebuild && _dirtyKeys.size > 0 && _cachedItemsWithSize.length === items.value.length && _cachedItemsWithSize.length > 0) {
+    let patched = false
+    for (const key of _dirtyKeys) {
+      const idx = _cachedKeyIndex.get(key)
+      if (idx === undefined) continue
+      const prev = _cachedItemsWithSize[idx]
+      if (!prev) continue
+      const newSize = _sizeMap.get(key) || props.minItemSize
+      if (prev.size !== newSize) {
+        const entry = { id: prev.id, item: prev.item, size: newSize, isValid: prev.isValid }
+        _cachedItemsWithSize[idx] = entry
+        _cachedKeyMap.set(key, entry)
+        patched = true
+      }
+    }
+    _dirtyKeys.clear()
+    if (patched) {
+      // Return a new array reference so downstream watchers fire, but the
+      // array is a shallow copy — only changed entries are new objects.
+      _cachedItemsWithSize = _cachedItemsWithSize.slice()
+    }
+    return _cachedItemsWithSize
+  }
+
+  // Full rebuild path: items list changed or first computation
+  _dirtyKeys.clear()
+  _forceFullRebuild = false
+
   const result: ItemWithSize[] = []
   let anyChanged = false
+  const seenKeys = new Set<string | number>()
+  const newKeyIndex = new Map<string | number, number>()
 
   for (const item of items.value) {
     if (!isItemValid(item)) {
@@ -226,13 +286,18 @@ const itemsWithSize = computed(() => {
     }
 
     const key = getItemKey(item)
+    seenKeys.add(key)
     const size = _sizeMap.get(key) || props.minItemSize
     const prev = _cachedKeyMap.get(key)
 
     if (prev && prev.item === item && prev.size === size) {
+      newKeyIndex.set(key, result.length)
       result.push(prev) // Reuse same object reference — no downstream triggers
     } else {
-      result.push({ id: key, item, size, isValid: true })
+      const entry = { id: key, item, size, isValid: true }
+      newKeyIndex.set(key, result.length)
+      result.push(entry)
+      _cachedKeyMap.set(key, entry) // Update in-place — only changed entries
       anyChanged = true
     }
   }
@@ -244,12 +309,17 @@ const itemsWithSize = computed(() => {
     return _cachedItemsWithSize
   }
 
-  // Rebuild cache
-  _cachedItemsWithSize = result
-  _cachedKeyMap = new Map()
-  for (const entry of result) {
-    if (entry.id != null) _cachedKeyMap.set(entry.id, entry)
+  // Remove stale keys that are no longer in the items list
+  if (_cachedKeyMap.size > seenKeys.size) {
+    for (const key of _cachedKeyMap.keys()) {
+      if (!seenKeys.has(key)) {
+        _cachedKeyMap.delete(key)
+      }
+    }
   }
+
+  _cachedItemsWithSize = result
+  _cachedKeyIndex = newKeyIndex
   return result
 })
 
@@ -257,10 +327,7 @@ const itemsWithSize = computed(() => {
 const updateItemSize = (key: string | number, size: number) => {
   if (_sizeMap.get(key) === size) return
   _pendingSizeUpdates.set(key, size)
-  if (!_pendingFlush) {
-    _pendingFlush = true
-    queueMicrotask(_flushSizeUpdates)
-  }
+  _scheduleFlush()
 }
 
 const getItemSize = (key: string | number): number => {
@@ -312,6 +379,8 @@ const handleScrollEnd = () => {
 // Watch for items changes
 watch(() => props.items, (newItems: VirtualScrollerItem[] | null | undefined) => {
   items.value = newItems || []
+  // Mark for full rebuild since the items array itself changed
+  _forceFullRebuild = true
 
   // Clean up sizes for items that no longer exist
   const validItems = (newItems || []).filter(item => item && isItemValid(item))

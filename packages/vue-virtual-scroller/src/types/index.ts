@@ -22,6 +22,7 @@ export interface ViewItem<T = any> {
     used: boolean
     key: string | number
     type: string | number
+    fresh: boolean
   }
 }
 
@@ -56,6 +57,8 @@ export interface ScrollerProps {
   stickToBottom?: boolean
   /** Pixel threshold from the bottom to consider the user "at the bottom". Default: 50 */
   stickToBottomThreshold?: number
+  /** When enabled, shows lightweight skeleton placeholders during active scrolling instead of rendering full item content. */
+  skeletonWhileScrolling?: boolean
 }
 
 export interface DynamicScrollerProps extends ScrollerProps {

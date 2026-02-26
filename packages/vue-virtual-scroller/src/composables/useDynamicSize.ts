@@ -53,9 +53,18 @@ export function useDynamicSize(
   }
 
   const handleResizeEntry = (entry: ResizeObserverEntry) => {
-    const size = direction === 'horizontal'
-      ? entry.contentRect.width
-      : entry.contentRect.height
+    // Use borderBoxSize when available — it includes padding and border,
+    // matching getBoundingClientRect() used in measureSize(). Using contentRect
+    // would exclude padding/borders and cause measurement oscillation.
+    let size: number
+    if (entry.borderBoxSize?.length) {
+      const box = entry.borderBoxSize[0]!
+      size = direction === 'horizontal' ? box.inlineSize : box.blockSize
+    } else {
+      size = direction === 'horizontal'
+        ? entry.contentRect.width
+        : entry.contentRect.height
+    }
     const resolvedSize = Math.max(size, minItemSize)
     if (hasSizeChanged(currentSize.value, resolvedSize)) {
       currentSize.value = resolvedSize

@@ -6,6 +6,7 @@
       ready,
       'page-mode': pageMode,
       [`direction-${direction}`]: true,
+      'grid-mode': (gridItems ?? 1) > 1,
       ...(typeof listClass === 'string' && listClass ? { [listClass]: true } : {})
     }"
     @scroll.passive="handleScroll"
@@ -49,25 +50,38 @@
           }"
       >
         <template #default="{ item, index, active }">
-          <slot
-            v-if="isItemValid(item)"
-            :item="item"
-            :index="index"
-            :active="active"
-          />
-          <slot
-            v-else
-            name="empty-item"
-            :index="index"
-          >
-            <div class="vue-recycle-scroller__empty-item vue-recycle-scroller__skeleton-row">
-              <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-circle" />
-              <div style="flex: 1;">
-                <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-line" />
-                <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-line" />
+          <template v-if="shouldShowSkeleton(view)">
+            <slot name="skeleton" :item="item" :index="index">
+              <div class="vue-recycle-scroller__skeleton-row">
+                <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-circle" />
+                <div style="flex: 1;">
+                  <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-line" />
+                  <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-line" />
+                </div>
               </div>
-            </div>
-          </slot>
+            </slot>
+          </template>
+          <template v-else>
+            <slot
+              v-if="isItemValid(item)"
+              :item="item"
+              :index="index"
+              :active="active"
+            />
+            <slot
+              v-else
+              name="empty-item"
+              :index="index"
+            >
+              <div class="vue-recycle-scroller__empty-item vue-recycle-scroller__skeleton-row">
+                <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-circle" />
+                <div style="flex: 1;">
+                  <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-line" />
+                  <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-line" />
+                </div>
+              </div>
+            </slot>
+          </template>
         </template>
       </ItemView>
 
@@ -110,6 +124,7 @@ interface InternalView {
     used: boolean
     key: string | number
     type: ViewType
+    fresh: boolean
   }
 }
 
@@ -126,7 +141,7 @@ const props = withDefaults(defineProps<Props>(), {
   typeField: 'type',
   pageMode: false,
   prerender: 0,
-  buffer: 200,
+  buffer: 500,
   emitUpdate: false,
   updateInterval: 0,
   listClass: '',
@@ -138,7 +153,8 @@ const props = withDefaults(defineProps<Props>(), {
   startAtBottom: false,
   initialScrollPercent: null,
   stickToBottom: false,
-  stickToBottomThreshold: 50
+  stickToBottomThreshold: 50,
+  skeletonWhileScrolling: false
 })
 
 const emit = defineEmits<ScrollerEmits>()
@@ -154,6 +170,22 @@ const totalSize = ref(0)
 const startIndex = ref(0)
 const endIndex = ref(0)
 const isScrolling = ref(false)
+const shouldShowSkeleton = (view: InternalView): boolean => {
+  if (!props.skeletonWhileScrolling) return false
+  if (!ready.value) return true
+  return view.nr.fresh
+}
+
+watch(isScrolling, (newVal, oldVal) => {
+  if (!newVal && oldVal) {
+    for (const view of pool.value) {
+      if (view.nr.fresh) {
+        view.nr.fresh = false
+      }
+    }
+  }
+})
+
 const isAtBottom = ref(false)
 
 const items = computed<VirtualScrollerItem[]>(() => props.items || [])
@@ -175,9 +207,27 @@ let fallbackResizeHandler: (() => void) | null = null
 
 // Track currently visible item keys for visible/hidden events
 const previousVisibleKeys = new Map<string | number, { item: VirtualScrollerItem; index: number }>()
+// Reusable Map for building the new visible set — avoids allocating a new Map
+// on every updateVisibleItems call. Cleared and refilled each time.
+const _newVisibleKeys = new Map<string | number, { item: VirtualScrollerItem; index: number }>()
+
+// Cached min size — updated as a side-effect of sizeData computation.
+// Used by checkPositionDiff to avoid forcing a full sizeData recompute
+// just to read the minimum item size threshold.
+const cachedMinSize = ref(props.minItemSize)
+
+// Incremental accumulator cache — avoids full O(N) rebuild when only a few
+// items change sizes (the common case for DynamicScroller size updates).
+let _prevEntries: SizeEntry[] = []
+let _prevItemsLength = 0
+let _prevComputedMinSize = Number.POSITIVE_INFINITY
 
 const sizeData = computed(() => {
   if (props.itemSize !== null) {
+    _prevEntries = []
+    _prevItemsLength = 0
+    _prevComputedMinSize = props.minItemSize
+    cachedMinSize.value = props.minItemSize
     return {
       entries: [] as SizeEntry[],
       total: Math.ceil(items.value.length / (props.gridItems || 1)) * props.itemSize,
@@ -185,26 +235,108 @@ const sizeData = computed(() => {
     }
   }
 
-  const entries: SizeEntry[] = []
+  const itemsArr = items.value
+  const count = itemsArr.length
+  const sField = props.sizeField
+  const minSize = props.minItemSize
+
+  // Incremental path: same-length items array — scan for first size diff
+  // and only rebuild the accumulator from that point forward.
+  if (count === _prevItemsLength && count > 0 && _prevEntries.length === count) {
+    let firstChanged = -1
+    for (let i = 0; i < count; i++) {
+      const item = itemsArr[i]
+      const itemSize = (item?.[sField] as number) || minSize
+      if (itemSize !== _prevEntries[i]!.size) {
+        firstChanged = i
+        break
+      }
+    }
+
+    if (firstChanged === -1) {
+      // No sizes changed at all — return cached data as-is
+      cachedMinSize.value = _prevComputedMinSize
+      return {
+        entries: _prevEntries,
+        total: _prevEntries[count - 1]!.accumulator,
+        computedMinSize: _prevComputedMinSize
+      }
+    }
+
+    // Rebuild only from firstChanged onward
+    let accumulator = firstChanged > 0 ? _prevEntries[firstChanged - 1]!.accumulator : 0
+    let computedMinSize = _prevComputedMinSize
+
+    // If the min size might have increased (an item that WAS the min changed),
+    // we need to rescan the portion before firstChanged too
+    const oldMinEntry = _prevEntries[firstChanged]!
+    const needFullMinScan = oldMinEntry.size <= computedMinSize
+
+    for (let i = firstChanged; i < count; i++) {
+      const item = itemsArr[i]
+      const itemSize = (item?.[sField] as number) || minSize
+      if (itemSize < computedMinSize) {
+        computedMinSize = itemSize
+      }
+      accumulator += itemSize
+      // Reuse existing entry objects where possible to reduce GC pressure
+      const existing = _prevEntries[i]!
+      existing.accumulator = accumulator
+      existing.size = itemSize
+    }
+
+    // If an item that was the previous min changed, rescan the unchanged prefix
+    // to find the true minimum (rare path)
+    if (needFullMinScan) {
+      computedMinSize = Number.POSITIVE_INFINITY
+      for (let i = 0; i < count; i++) {
+        if (_prevEntries[i]!.size < computedMinSize) {
+          computedMinSize = _prevEntries[i]!.size
+        }
+      }
+    }
+
+    if (!Number.isFinite(computedMinSize)) {
+      computedMinSize = minSize
+    }
+
+    _prevComputedMinSize = computedMinSize
+    cachedMinSize.value = computedMinSize
+
+    return {
+      entries: _prevEntries,
+      total: accumulator,
+      computedMinSize
+    }
+  }
+
+  // Full rebuild path: items length changed or first computation
+  const entries: SizeEntry[] = new Array(count)
   let accumulator = 0
   let computedMinSize = Number.POSITIVE_INFINITY
 
-  for (let i = 0; i < items.value.length; i++) {
-    const item = items.value[i]
-    const itemSize = (item?.[props.sizeField] as number) || props.minItemSize
+  for (let i = 0; i < count; i++) {
+    const item = itemsArr[i]
+    const itemSize = (item?.[sField] as number) || minSize
     if (itemSize < computedMinSize) {
       computedMinSize = itemSize
     }
     accumulator += itemSize
-    entries.push({
-      accumulator,
-      size: itemSize
-    })
+    entries[i] = { accumulator, size: itemSize }
   }
 
   if (!Number.isFinite(computedMinSize)) {
-    computedMinSize = props.minItemSize
+    computedMinSize = minSize
   }
+
+  // Cache for incremental updates
+  _prevEntries = entries
+  _prevItemsLength = count
+  _prevComputedMinSize = computedMinSize
+
+  // Side-effect: update cached min size so checkPositionDiff can read it
+  // without forcing this entire computed to recompute.
+  cachedMinSize.value = computedMinSize
 
   return {
     entries,
@@ -244,7 +376,8 @@ const createView = (index: number, item: VirtualScrollerItem | null | undefined,
     index,
     used: true,
     key,
-    type
+    type,
+    fresh: isScrolling.value && props.skeletonWhileScrolling
   })
 
   const view = shallowReactive({
@@ -264,6 +397,7 @@ const getRecycledView = (type: ViewType): InternalView | undefined => {
   const view = recycledPool.pop()
   if (view) {
     view.nr.used = true
+    view.nr.fresh = isScrolling.value && props.skeletonWhileScrolling
   }
   return view
 }
@@ -272,6 +406,7 @@ const removeAndRecycleView = (view: InternalView) => {
   const recycledPool = getRecycledPool(view.nr.type)
   recycledPool.push(view)
   view.nr.used = false
+  view.nr.fresh = false
   view.position = -9999
   view.offset = 0
   views.delete(view.nr.key)
@@ -462,8 +597,12 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
 
     if (checkPositionDiff) {
       const positionDiff = Math.abs(scroll.start - lastUpdateScrollPosition)
-      const minSize = props.itemSize === null ? sizeData.value.computedMinSize : props.itemSize
-      if (positionDiff < minSize) {
+      // Update frequently with small batches rather than infrequently with
+      // large batches. Using minSize/3 means ~1-2 items recycle per update
+      // instead of waiting for a full item height and bursting 5-10 at once.
+      const minSize = props.itemSize === null ? cachedMinSize.value : props.itemSize
+      const threshold = Math.max(minSize / 3, 12)
+      if (positionDiff < threshold) {
         return { continuous: true }
       }
     }
@@ -527,9 +666,6 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
 
   const continuous = newStartIndex <= endIndex.value && newEndIndex >= startIndex.value
 
-  // Capture currently visible keys before view recycling
-  const oldVisibleKeys = new Map(previousVisibleKeys)
-
   if (!continuous || itemsChanged) {
     removeAndRecycleAllViews()
   } else {
@@ -585,31 +721,32 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
     }
   }
 
-  // Compute new visible set and emit visible/hidden events
-  const newVisibleKeys = new Map<string | number, { item: VirtualScrollerItem; index: number }>()
+  // Build new visible set using reusable Map (avoids allocation per call)
+  _newVisibleKeys.clear()
   for (const [key, view] of views) {
     if (view.nr.used && view.item) {
-      newVisibleKeys.set(key, { item: view.item, index: view.nr.index })
+      _newVisibleKeys.set(key, { item: view.item, index: view.nr.index })
     }
   }
 
-  // Emit 'visible' for items that entered the viewport
-  for (const [key, data] of newVisibleKeys) {
-    if (!oldVisibleKeys.has(key)) {
+  // Emit 'visible' for items that entered the viewport.
+  // Compare against previousVisibleKeys directly — no copy needed.
+  for (const [key, data] of _newVisibleKeys) {
+    if (!previousVisibleKeys.has(key)) {
       emit('visible', { item: data.item, index: data.index, key } as VisibilityEvent)
     }
   }
 
   // Emit 'hidden' for items that left the viewport
-  for (const [key, data] of oldVisibleKeys) {
-    if (!newVisibleKeys.has(key)) {
+  for (const [key, data] of previousVisibleKeys) {
+    if (!_newVisibleKeys.has(key)) {
       emit('hidden', { item: data.item, index: data.index, key } as VisibilityEvent)
     }
   }
 
   // Update tracked visible keys
   previousVisibleKeys.clear()
-  for (const [key, data] of newVisibleKeys) {
+  for (const [key, data] of _newVisibleKeys) {
     previousVisibleKeys.set(key, data)
   }
 
@@ -1119,6 +1256,8 @@ defineExpose({
 }
 
 .vue-recycle-scroller.direction-horizontal {
+  display: flex;
+  flex-direction: row;
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -1136,13 +1275,29 @@ defineExpose({
   box-sizing: border-box;
 }
 
+.vue-recycle-scroller.direction-vertical .vue-recycle-scroller__item-wrapper {
+  width: 100%;
+}
+
+.vue-recycle-scroller.direction-horizontal .vue-recycle-scroller__item-wrapper {
+  height: 100%;
+  flex-shrink: 0;
+}
+
 .vue-recycle-scroller__item-view {
   position: absolute;
   top: 0;
   left: 0;
   box-sizing: border-box;
-  backface-visibility: hidden;
   contain: layout style paint;
+}
+
+.vue-recycle-scroller.ready.direction-vertical:not(.grid-mode) .vue-recycle-scroller__item-view {
+  width: 100%;
+}
+
+.vue-recycle-scroller.ready.direction-horizontal:not(.grid-mode) .vue-recycle-scroller__item-view {
+  height: 100%;
 }
 
 .vue-recycle-scroller__item-view.hover {
@@ -1160,6 +1315,8 @@ defineExpose({
 }
 
 .vue-recycle-scroller.page-mode.direction-horizontal {
+  display: flex;
+  flex-direction: row;
   overflow-x: auto;
   overflow-y: hidden;
 }

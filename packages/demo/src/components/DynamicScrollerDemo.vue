@@ -12,6 +12,7 @@
       :items="filteredItems"
       :min-item-size="54"
       :emit-update="true"
+      skeleton-while-scrolling
       class="scroller"
       @resize="onResize"
       @update="onUpdate"
@@ -45,6 +46,8 @@
               :src="item.avatar"
               alt="avatar"
               class="image"
+              width="32"
+              height="32"
             >
           </div>
           <div class="text">

@@ -27,7 +27,5 @@ const props = withDefaults(defineProps<Props>(), {
 <style scoped>
 .vue-recycle-scroller__item-view {
   box-sizing: border-box;
-  backface-visibility: hidden;
-  contain: layout style paint;
 }
 </style>

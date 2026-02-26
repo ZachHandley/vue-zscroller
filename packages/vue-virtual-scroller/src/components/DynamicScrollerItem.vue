@@ -103,7 +103,6 @@ watch(
   ([newActive, newItem], [oldActive, oldItem]) => {
     if (!isClient.value) return
     if (newActive && (!oldActive || newItem !== oldItem)) {
-      // Became active, or item reference changed while active
       nextTick(() => {
         updateSize()
       })
@@ -133,13 +132,11 @@ if (props.watchData) {
 onMounted(() => {
   if (element.value) {
     setElement(element.value)
-    // Initial sync measurement — then sync currentSize so the SharedResizeObserver
-    // callback (which fires on the next frame) finds no change and skips re-reporting.
     const size = measureSize()
     if (size > props.minItemSize && dynamicContext) {
       dynamicContext.updateItemSize(itemKey.value, size)
-      setCurrentSize(size)
     }
+    setCurrentSize(size)
   }
 })
 
@@ -165,7 +162,6 @@ defineExpose({
 <style scoped>
 .vue-dynamic-scroller-item {
   box-sizing: border-box;
-  backface-visibility: hidden;
   contain: layout style paint;
 }
 
