@@ -2,7 +2,7 @@
   "name": "demo",
   "version": "1.0.0",
   "private": true,
-  "description": "Demos for vue-virtual-scroller",
+  "description": "Demos for zvue-virtual-scroller",
   "author": "Guillaume Chau <guillaume.b.chau@gmail.com>",
   "scripts": {
     "dev": "vite dev --port 8080",

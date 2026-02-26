@@ -1,0 +1,49 @@
+name: Publish to NPM
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  lint-build-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install
+
+      - run: pnpm lint
+
+      - run: pnpm build
+
+      - name: Determine version
+        id: version
+        run: |
+          CURRENT=$(npm view zvue-virtual-scroller version 2>/dev/null) || true
+          if [ -z "$CURRENT" ]; then
+            VERSION="0.1.0"
+          else
+            MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+            MINOR=$(echo "$CURRENT" | cut -d. -f2)
+            PATCH=$(echo "$CURRENT" | cut -d. -f3)
+            PATCH=$((PATCH + 1))
+            VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set version
+        run: cd packages/vue-virtual-scroller && npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+
+      - name: Publish
+        run: cd packages/vue-virtual-scroller && npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
