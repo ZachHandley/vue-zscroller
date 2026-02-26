@@ -71,7 +71,7 @@
     >
       <div class="wrapper">
         <RecycleScroller
-          :key="pageModeFullPage"
+          :key="String(pageModeFullPage)"
           ref="scroller"
           class="scroller"
           :items="list"
@@ -88,23 +88,25 @@
           @scroll-end="onScrollEnd"
         >
           <template #default="props">
-            <div
-              v-if="props.item.type === 'letter'"
-              class="tr letter big"
-              @click="props.item.height = (props.item.height === 200 ? 300 : 200)"
-            >
-              <div class="td index">
-                {{ props.index }}
+            <template v-if="props.item">
+              <div
+                v-if="props.item.type === 'letter'"
+                class="tr letter big"
+                @click="props.item.height = (props.item.height === 200 ? 300 : 200)"
+              >
+                <div class="td index">
+                  {{ props.index }}
+                </div>
+                <div class="td value">
+                  {{ props.item.value }} Scoped
+                </div>
               </div>
-              <div class="td value">
-                {{ props.item.value }} Scoped
-              </div>
-            </div>
-            <Person
-              v-if="props.item.type === 'person'"
-              :item="props.item"
-              :index="props.index"
-            />
+              <Person
+                v-if="props.item.type === 'person'"
+                :item="(props.item as any)"
+                :index="props.index"
+              />
+            </template>
           </template>
         </RecycleScroller>
       </div>

@@ -21,8 +21,7 @@ if (typeof window !== 'undefined') {
 
     window.addEventListener('test', null as any, opts)
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  catch (e) {
+  catch {
     // noop
   }
 }

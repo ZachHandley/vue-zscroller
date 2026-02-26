@@ -1,8 +1,9 @@
-import { defineConfig, type Plugin } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import { resolve } from 'path'
-import dts from 'vite-plugin-dts'
+import type { Plugin } from 'vite'
 import { createRequire } from 'node:module'
+import { resolve } from 'node:path'
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite'
+import dts from 'vite-plugin-dts'
 
 const require = createRequire(import.meta.url)
 
@@ -35,7 +36,8 @@ function cssInjectPlugin(): Plugin {
         }
       }
 
-      if (!combinedCss) return
+      if (!combinedCss)
+        return
 
       // 2. Build the injection IIFE -- SSR-safe and idempotent
       const injectionCode = [
@@ -51,10 +53,12 @@ function cssInjectPlugin(): Plugin {
 
       // 3. Prepend injection code to every JS chunk
       for (const [fileName, chunk] of Object.entries(bundle)) {
-        if (chunk.type !== 'chunk') continue
-        if (!fileName.endsWith('.js') && !fileName.endsWith('.mjs')) continue
+        if (chunk.type !== 'chunk')
+          continue
+        if (!fileName.endsWith('.js') && !fileName.endsWith('.mjs'))
+          continue
 
-        chunk.code = injectionCode + '\n' + chunk.code
+        chunk.code = `${injectionCode}\n${chunk.code}`
       }
 
       // 4. Remove CSS assets from the bundle so no separate file is emitted
@@ -71,9 +75,9 @@ const config = defineConfig({
       include: [/\.vue$/],
       template: {
         compilerOptions: {
-          isCustomElement: tag => tag.startsWith('x-')
-        }
-      }
+          isCustomElement: tag => tag.startsWith('x-'),
+        },
+      },
     }),
     dts({
       outDir: 'dist',
@@ -105,7 +109,7 @@ const config = defineConfig({
       external: ['vue', '@vueuse/core'],
       output: {
         globals: {
-          vue: 'Vue',
+          'vue': 'Vue',
           '@vueuse/core': 'VueUse',
         },
         exports: 'named',
@@ -118,7 +122,7 @@ const config = defineConfig({
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
-    VERSION: JSON.stringify(require('./package.json').version),
+    'VERSION': JSON.stringify(require('./package.json').version),
   },
 })
 

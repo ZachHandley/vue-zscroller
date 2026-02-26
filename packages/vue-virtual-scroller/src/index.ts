@@ -1,40 +1,40 @@
 import type { App } from 'vue'
 import DynamicScroller from './components/DynamicScroller.vue'
 import DynamicScrollerItem from './components/DynamicScrollerItem.vue'
-import RecycleScroller from './components/RecycleScroller.vue'
 import GridScroller from './components/GridScroller.vue'
+import RecycleScroller from './components/RecycleScroller.vue'
 import config from './config'
 
-// Composables
-export { useSSRSafe } from './composables/useSSRSafe'
-export { useIdState } from './composables/useIdState'
+export { useAsyncItems, useItemValidation } from './composables/useAsyncItems'
 export { useDynamicSize } from './composables/useDynamicSize'
 export { useGridLayout } from './composables/useGridLayout'
+export { useIdState } from './composables/useIdState'
+// Composables
+export { useSSRSafe } from './composables/useSSRSafe'
 export { useSSRSafeEnhanced } from './composables/useSSRSafeEnhanced'
-export { useAsyncItems, useItemValidation } from './composables/useAsyncItems'
-// @vueuse/core utilities (re-exported for convenience)
-export { useScrollLock, useLocalStorage, useSessionStorage, useStorage, useRafFn, useDebounceFn, useThrottleFn, useIntersectionObserver, useResizeObserver } from '@vueuse/core'
+// Types
+export type * from './types'
 
 // IdState is now available as a composable via useIdState export
 
-// Types
-export type * from './types'
+// Component types
+export type {
+  DynamicScrollerComponent,
+  DynamicScrollerItemComponent,
+  GridScrollerComponent,
+  RecycleScrollerComponent,
+} from './types/components'
 
 // Component exports
 export {
   DynamicScroller,
   DynamicScrollerItem,
+  GridScroller,
   RecycleScroller,
-  GridScroller
 }
 
-// Component types
-export type {
-  RecycleScrollerComponent,
-  DynamicScrollerComponent,
-  DynamicScrollerItemComponent,
-  GridScrollerComponent
-} from './types/components'
+// @vueuse/core utilities (re-exported for convenience)
+export { useDebounceFn, useIntersectionObserver, useLocalStorage, useRafFn, useResizeObserver, useScrollLock, useSessionStorage, useStorage, useThrottleFn } from '@vueuse/core'
 
 function registerComponents(app: App, prefix: string = '') {
   app.component(`${prefix}recycle-scroller`, RecycleScroller)
@@ -74,3 +74,13 @@ const plugin = {
 }
 
 export default plugin
+
+// Global component type augmentation for app.use() consumers
+declare module 'vue' {
+  export interface GlobalComponents {
+    RecycleScroller: typeof import('./components/RecycleScroller.vue')['default']
+    DynamicScroller: typeof import('./components/DynamicScroller.vue')['default']
+    DynamicScrollerItem: typeof import('./components/DynamicScrollerItem.vue')['default']
+    GridScroller: typeof import('./components/GridScroller.vue')['default']
+  }
+}

@@ -1,0 +1,116 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g., v1.0.0)"
+        required: true
+        type: string
+      dry_run:
+        description: "Perform a dry run without publishing"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: publish-package
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      tag: ${{ steps.parse.outputs.tag }}
+    steps:
+      - name: Parse version
+        id: parse
+        run: |
+          VERSION="${{ inputs.version }}"
+          # Strip v prefix if present
+          VERSION_CLEAN="${VERSION#v}"
+          echo "version=${VERSION_CLEAN}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION_CLEAN}" >> "$GITHUB_OUTPUT"
+
+  publish-npm:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install
+
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_ACCESS_TOKEN }}" >> ~/.npmrc
+
+      - run: pnpm lint
+
+      - run: pnpm build
+
+      - name: Update package version
+        run: cd packages/vue-virtual-scroller && pnpm version ${{ needs.version.outputs.version }} --no-git-tag-version
+
+      - name: Publish to npm
+        if: inputs.dry_run != true
+        run: cd packages/vue-virtual-scroller && pnpm publish --no-git-checks --access public
+
+      - name: Publish to npm (dry run)
+        if: inputs.dry_run == true
+        run: cd packages/vue-virtual-scroller && pnpm publish --no-git-checks --access public --dry-run
+
+  create-release:
+    needs: [version, publish-npm]
+    runs-on: ubuntu-latest
+    if: inputs.dry_run != true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Forgejo release
+        run: |
+          PREVIOUS_TAG=$(git tag --sort=-creatordate | head -2 | tail -1)
+          if [ -z "$PREVIOUS_TAG" ]; then
+            CHANGELOG="Initial release"
+          else
+            CHANGELOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          PRERELEASE=false
+          if echo "${{ needs.version.outputs.tag }}" | grep -qE "(alpha|beta|rc)"; then
+            PRERELEASE=true
+          fi
+
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.FORGEJO_ACTIONS_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg tag "${{ needs.version.outputs.tag }}" \
+              --arg name "v${{ needs.version.outputs.version }}" \
+              --arg body "$CHANGELOG" \
+              --argjson prerelease $PRERELEASE \
+              '{tag_name: $tag, name: $name, body: $body, prerelease: $prerelease}')" \
+            "https://forge.blackleafdigital.com/api/v1/repos/BlackLeafDigital/zvue-virtual-scroller/releases"
+
+  sync-to-github:
+    needs: [version, publish-npm]
+    runs-on: ubuntu-latest
+    if: inputs.dry_run != true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync to GitHub
+        run: |
+          git remote add github https://x-access-token:${{ secrets.GH_ACCESS_TOKEN }}@github.com/ZachHandley/zvue-virtual-scroller.git
+          git push github HEAD:main --force
+          git push github --tags --force

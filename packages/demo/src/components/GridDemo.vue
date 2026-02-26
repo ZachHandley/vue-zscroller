@@ -56,7 +56,7 @@ onMounted(() => {
       :item-secondary-size="itemSecondarySize"
     >
       <template #default="{ item, index }">
-        <div class="item">
+        <div v-if="item" class="item">
           <img
             :key="item.id"
             :src="item.value.avatar"

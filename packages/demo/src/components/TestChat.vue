@@ -23,6 +23,7 @@
     >
       <template #default="{ item, index, active }">
         <DynamicScrollerItem
+          v-if="item"
           :item="item"
           :active="active"
           :data-index="index"

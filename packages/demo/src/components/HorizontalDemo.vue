@@ -30,6 +30,7 @@
 
       <template #default="{ item, index, active }">
         <DynamicScrollerItem
+          v-if="item"
           :item="item"
           :active="active"
           :size-dependencies="[
@@ -42,7 +43,7 @@
             width: `${Math.max(130, Math.round(item.message.length / 20 * 20))}px`,
           }"
           class="message"
-          @click="changeMessage(item)"
+          @click="changeMessage(item as DemoItem)"
         >
           <div class="avatar">
             <img

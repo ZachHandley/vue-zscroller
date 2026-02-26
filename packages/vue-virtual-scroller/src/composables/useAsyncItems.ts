@@ -1,6 +1,7 @@
-import { computed, ref, watch, type Ref, type ComputedRef } from 'vue'
-import { useDebounceFn, useThrottleFn } from '@vueuse/core'
+import type { ComputedRef, Ref } from 'vue'
 import type { VirtualScrollerItem } from '../types'
+import { useDebounceFn, useThrottleFn } from '@vueuse/core'
+import { computed, ref, watch } from 'vue'
 
 export interface AsyncItemState<T = any> {
   item: VirtualScrollerItem<T> | null | undefined
@@ -36,16 +37,24 @@ export interface UseAsyncItemsReturn {
  */
 export function useAsyncItems(
   itemsRef: Ref<VirtualScrollerItem[]>,
-  options: UseAsyncItemsOptions = {}
+  options: UseAsyncItemsOptions = {},
 ): UseAsyncItemsReturn {
   const {
     debounceTime = 150,
     throttleTime = 16,
-    enableAsync = true
+    enableAsync = true,
   } = options
 
   const loadingStates = ref<Map<string | number, AsyncItemState>>(new Map())
   const internalItems = ref<VirtualScrollerItem[]>([])
+
+  let keyCounter = 0
+
+  const getItemKeyInternal = (item: VirtualScrollerItem, index?: number): string | number => {
+    if (!item)
+      return 'undefined-item'
+    return item.id || item.key || `item-${index ?? keyCounter++}`
+  }
 
   // Update internal items when source changes
   watch(() => itemsRef.value, (newItems) => {
@@ -62,7 +71,7 @@ export function useAsyncItems(
               item,
               isLoading: false,
               hasError: false,
-              error: null
+              error: null,
             })
           }
         }
@@ -78,7 +87,7 @@ export function useAsyncItems(
         }
       })
 
-      keysToDelete.forEach(key => {
+      keysToDelete.forEach((key) => {
         loadingStates.value.delete(key)
       })
     }
@@ -86,20 +95,23 @@ export function useAsyncItems(
 
   // Check if any items are loading
   const isLoading = computed(() => {
-    if (!enableAsync) return false
+    if (!enableAsync)
+      return false
     return Array.from(loadingStates.value.values()).some(state => state.isLoading)
   })
 
   // Check if any items have errors
   const hasErrors = computed(() => {
-    if (!enableAsync) return false
+    if (!enableAsync)
+      return false
     return Array.from(loadingStates.value.values()).some(state => state.hasError)
   })
 
   // Computed items with their states
   const itemsWithState = computed(() => {
     return internalItems.value.map((item, index) => {
-      if (!item) return null
+      if (!item)
+        return null
       if (enableAsync) {
         const key = getItemKeyInternal(item, index)
         const state = loadingStates.value.get(key)
@@ -111,31 +123,28 @@ export function useAsyncItems(
 
   // Validation utilities
   const isItemValid = (item: VirtualScrollerItem | null | undefined): boolean => {
-    if (!item) return false
+    if (!item)
+      return false
     return typeof item === 'object' && item !== null && !Array.isArray(item)
   }
 
-  let keyCounter = 0
-
-  const getItemKeyInternal = (item: VirtualScrollerItem, index?: number): string | number => {
-    if (!item) return 'undefined-item'
-    return item.id || item.key || `item-${index ?? keyCounter++}`
-  }
-
   const getItemKey = (item: VirtualScrollerItem | null | undefined, fallback: string | number = 'undefined-item'): string | number => {
-    if (!item) return fallback
+    if (!item)
+      return fallback
     return item.id || item.key || fallback
   }
 
   const getItemIndex = (item: VirtualScrollerItem | null | undefined, items: VirtualScrollerItem[]): number => {
-    if (!item) return -1
+    if (!item)
+      return -1
     const key = getItemKeyInternal(item)
     return items.findIndex((i, idx) => i && getItemKeyInternal(i, idx) === key)
   }
 
   // State management methods
   const setItemLoading = (key: string | number, isLoading: boolean) => {
-    if (!enableAsync) return
+    if (!enableAsync)
+      return
 
     const state = loadingStates.value.get(key)
     if (state) {
@@ -146,7 +155,8 @@ export function useAsyncItems(
   }
 
   const setItemError = (key: string | number, error: Error) => {
-    if (!enableAsync) return
+    if (!enableAsync)
+      return
 
     const state = loadingStates.value.get(key)
     if (state) {
@@ -157,7 +167,8 @@ export function useAsyncItems(
   }
 
   const setItemLoaded = (key: string | number, item: VirtualScrollerItem) => {
-    if (!enableAsync) return
+    if (!enableAsync)
+      return
 
     const state = loadingStates.value.get(key)
     if (state) {
@@ -184,7 +195,7 @@ export function useAsyncItems(
           item,
           isLoading: false,
           hasError: false,
-          error: null
+          error: null,
         })
       }
       return item
@@ -203,7 +214,7 @@ export function useAsyncItems(
     setItemError,
     setItemLoaded,
     refreshItems,
-    resetAllStates
+    resetAllStates,
   }
 }
 
@@ -212,17 +223,20 @@ export function useAsyncItems(
  */
 export function useItemValidation() {
   const isItemValid = (item: VirtualScrollerItem | null | undefined): boolean => {
-    if (!item) return false
+    if (!item)
+      return false
     return typeof item === 'object' && item !== null && !Array.isArray(item)
   }
 
   const getItemKey = (item: VirtualScrollerItem | null | undefined, fallback: string | number = 'undefined-item'): string | number => {
-    if (!item) return fallback
+    if (!item)
+      return fallback
     return item.id || item.key || fallback
   }
 
   const getItemIndex = (item: VirtualScrollerItem | null | undefined, items: VirtualScrollerItem[]): number => {
-    if (!item) return -1
+    if (!item)
+      return -1
     const key = getItemKey(item)
     return items.findIndex(i => i && getItemKey(i) === key)
   }
@@ -240,6 +254,6 @@ export function useItemValidation() {
     getItemKey,
     getItemIndex,
     ensureItemArray,
-    filterValidItems
+    filterValidItems,
   }
 }

@@ -1,5 +1,6 @@
-import { computed, ref, onBeforeUnmount, type Ref, type ComputedRef } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import { useResizeObserver } from '@vueuse/core'
+import { computed, onBeforeUnmount, ref } from 'vue'
 
 export interface UseGridLayoutOptions {
   containerElement: Ref<HTMLElement | null>
@@ -43,7 +44,7 @@ export function useGridLayout(options: UseGridLayoutOptions): UseGridLayoutRetur
     minColumns,
     maxColumns,
     columnsOverride,
-    direction
+    direction,
   } = options
 
   const containerWidth = ref(0)
@@ -59,12 +60,14 @@ export function useGridLayout(options: UseGridLayoutOptions): UseGridLayoutRetur
 
   useResizeObserver(containerElement, (entries) => {
     const entry = entries[0]
-    if (!entry) return
+    if (!entry)
+      return
     const w = entry.contentRect.width
     const h = entry.contentRect.height
 
     // Skip if size hasn't actually changed
-    if (w === containerWidth.value && h === containerHeight.value) return
+    if (w === containerWidth.value && h === containerHeight.value)
+      return
 
     // Immediate first measurement (no delay)
     if (containerWidth.value === 0 && containerHeight.value === 0) {
@@ -105,7 +108,8 @@ export function useGridLayout(options: UseGridLayoutOptions): UseGridLayoutRetur
     const cellSize = isVertical ? itemWidth.value : itemHeight.value
     const gap = isVertical ? columnGap.value : rowGap.value
 
-    if (availableSize <= 0 || cellSize <= 0) return minColumns.value
+    if (availableSize <= 0 || cellSize <= 0)
+      return minColumns.value
 
     // How many items fit: floor((available + gap) / (cellSize + gap))
     const rawColumns = Math.floor((availableSize + gap) / (cellSize + gap))
@@ -123,11 +127,13 @@ export function useGridLayout(options: UseGridLayoutOptions): UseGridLayoutRetur
     if (isVertical) {
       // Cross axis: stretch to fill container width
       const available = containerWidth.value
-      if (available <= 0 || cols <= 0) return itemWidth.value
+      if (available <= 0 || cols <= 0)
+        return itemWidth.value
       // available = cols * cellWidth + (cols - 1) * gap
       // cellWidth = (available - (cols - 1) * gap) / cols
       return Math.floor((available - (cols - 1) * columnGap.value) / cols)
-    } else {
+    }
+    else {
       // Main axis in horizontal mode: use requested size
       return itemWidth.value
     }
@@ -140,10 +146,12 @@ export function useGridLayout(options: UseGridLayoutOptions): UseGridLayoutRetur
     if (isVertical) {
       // Main axis: use requested size
       return itemHeight.value
-    } else {
+    }
+    else {
       // Cross axis in horizontal mode: stretch to fill container height
       const available = containerHeight.value
-      if (available <= 0 || cols <= 0) return itemHeight.value
+      if (available <= 0 || cols <= 0)
+        return itemHeight.value
       return Math.floor((available - (cols - 1) * rowGap.value) / cols)
     }
   })
@@ -182,6 +190,6 @@ export function useGridLayout(options: UseGridLayoutOptions): UseGridLayoutRetur
     cellWidth,
     cellHeight,
     gridViewSize,
-    gridViewSecondarySize
+    gridViewSecondarySize,
   }
 }

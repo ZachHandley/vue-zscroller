@@ -1,12 +1,13 @@
-import { ref, reactive, watch, onMounted, onBeforeUpdate, useId, type Ref } from 'vue'
+import type { Ref } from 'vue'
 import type { UseIdStateOptions, UseIdStateReturn } from '../types/composables'
+import { onBeforeUpdate, onMounted, reactive, ref, useId, watch } from 'vue'
 
 export function useIdState<T = any>(
-  options: UseIdStateOptions<T> = {}
+  options: UseIdStateOptions<T> = {},
 ): UseIdStateReturn<T> {
   const {
     idProp = vm => vm.item?.id,
-    initialState = () => ({})
+    initialState = () => ({}),
   } = options
 
   // Generate stable ID using Vue's useId for fallback
@@ -17,7 +18,8 @@ export function useIdState<T = any>(
   const vm = ref<any>(null)
 
   const getId = (): string | number => {
-    if (!vm.value) return stableId
+    if (!vm.value)
+      return stableId
 
     if (typeof idProp === 'function') {
       const id = idProp(vm.value)
@@ -42,7 +44,8 @@ export function useIdState<T = any>(
     if (id !== currentId.value) {
       if (!store[id]) {
         initIdState(id)
-      } else {
+      }
+      else {
         currentId.value = id
         idState.value = store[id]
       }
@@ -79,6 +82,6 @@ export function useIdState<T = any>(
     idState,
     updateIdState,
     reset,
-    setup
+    setup,
   }
 }

@@ -1,7 +1,7 @@
-import { ref, computed } from 'vue'
-import { useLocalStorage, useSessionStorage, useStorage } from '@vueuse/core'
-import { useSSRSafe } from './useSSRSafe'
 import type { Ref } from 'vue'
+import { useLocalStorage, useSessionStorage, useStorage } from '@vueuse/core'
+import { computed, ref } from 'vue'
+import { useSSRSafe } from './useSSRSafe'
 
 const _isClient = typeof window !== 'undefined'
 
@@ -62,8 +62,8 @@ export function useSSRSafeWindow() {
           removeListener: () => {},
           addEventListener: () => {},
           removeEventListener: () => {},
-          dispatchEvent: () => false
-        })
+          dispatchEvent: () => false,
+        }),
       }
     }
 
@@ -93,7 +93,7 @@ export function useSSRSafeDocument() {
             bottom: 768,
             x: 0,
             y: 0,
-            toJSON: () => ({})
+            toJSON: () => ({}),
           }),
           getClientRects: () => [],
           scrollIntoView: () => {},
@@ -107,7 +107,7 @@ export function useSSRSafeDocument() {
           querySelectorAll: () => [],
           getElementsByTagName: () => [],
           getElementsByClassName: () => [],
-          getElementById: () => null
+          getElementById: () => null,
         },
         body: {
           clientWidth: 1024,
@@ -125,8 +125,8 @@ export function useSSRSafeDocument() {
             bottom: 768,
             x: 0,
             y: 0,
-            toJSON: () => ({})
-          })
+            toJSON: () => ({}),
+          }),
         },
         createDocumentFragment: () => ({
           appendChild: () => {},
@@ -138,7 +138,7 @@ export function useSSRSafeDocument() {
           querySelectorAll: () => [],
           getElementsByTagName: () => [],
           getElementsByClassName: () => [],
-          getElementById: () => null
+          getElementById: () => null,
         }),
         createElement: () => ({
           appendChild: () => {},
@@ -155,7 +155,7 @@ export function useSSRSafeDocument() {
             bottom: 0,
             x: 0,
             y: 0,
-            toJSON: () => ({})
+            toJSON: () => ({}),
           }),
           getClientRects: () => [],
           scrollIntoView: () => {},
@@ -169,13 +169,13 @@ export function useSSRSafeDocument() {
           querySelectorAll: () => [],
           getElementsByTagName: () => [],
           getElementsByClassName: () => [],
-          getElementById: () => null
+          getElementById: () => null,
         }),
         querySelector: () => null,
         querySelectorAll: () => [],
         getElementsByTagName: () => [],
         getElementsByClassName: () => [],
-        getElementById: () => null
+        getElementById: () => null,
       }
     }
 
@@ -199,7 +199,7 @@ export function useSSRSafeViewport() {
     viewportHeight,
     isMobile,
     isTablet,
-    isDesktop
+    isDesktop,
   }
 }
 
@@ -241,7 +241,7 @@ export function useSSRSafeDevice() {
     isAndroid,
     isSafari,
     isChrome,
-    isFirefox
+    isFirefox,
   }
 }
 
@@ -267,7 +267,7 @@ export function useSSRSafeRaf() {
 
   return {
     requestRaf,
-    cancelRaf
+    cancelRaf,
   }
 }
 
@@ -284,39 +284,39 @@ export function useSSRSafeIntersection() {
         boundingClientRect: typeof element.getBoundingClientRect === 'function'
           ? element.getBoundingClientRect()
           : ({
-            width: 0,
-            height: 0,
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            x: 0,
-            y: 0,
-            toJSON: () => ({})
-          } as DOMRect),
+              width: 0,
+              height: 0,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              x: 0,
+              y: 0,
+              toJSON: () => ({}),
+            } as DOMRect),
         intersectionRect: typeof element.getBoundingClientRect === 'function'
           ? element.getBoundingClientRect()
           : ({
-            width: 0,
-            height: 0,
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            x: 0,
-            y: 0,
-            toJSON: () => ({})
-          } as DOMRect),
+              width: 0,
+              height: 0,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              x: 0,
+              y: 0,
+              toJSON: () => ({}),
+            } as DOMRect),
         rootBounds: { width: 1024, height: 768, top: 0, left: 0, right: 1024, bottom: 768, x: 0, y: 0, toJSON: () => ({}) },
         target: element,
-        time: (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now()
+        time: (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now(),
       } as IntersectionObserverEntry)
       return { disconnect: () => {} }
     }
 
     if (typeof IntersectionObserver === 'undefined') {
       return {
-        disconnect: () => {}
+        disconnect: () => {},
       }
     }
 
@@ -327,12 +327,12 @@ export function useSSRSafeIntersection() {
     observer.observe(element)
 
     return {
-      disconnect: () => observer.disconnect()
+      disconnect: () => observer.disconnect(),
     }
   }
 
   return {
-    observe
+    observe,
   }
 }
 
@@ -350,6 +350,6 @@ export function useSSRSafeEnhanced() {
     useSSRSafeViewport,
     useSSRSafeDevice,
     useSSRSafeRaf,
-    useSSRSafeIntersection
+    useSSRSafeIntersection,
   }
 }

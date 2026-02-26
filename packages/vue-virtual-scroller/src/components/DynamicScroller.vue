@@ -84,31 +84,40 @@ import { useSSRSafe } from '../composables/useSSRSafe'
 import { useItemValidation } from '../composables/useAsyncItems'
 import type { DynamicScrollerProps, DynamicScrollerEmits, VirtualScrollerItem, ResizeEvent, VisibilityEvent, UpdateEvent } from '../types'
 
-interface Props extends DynamicScrollerProps {}
-
-const props = withDefaults(defineProps<Props>(), {
-  keyField: 'id',
-  direction: 'vertical',
-  pageMode: false,
-  prerender: 0,
-  buffer: 500,
-  emitUpdate: false,
-  updateInterval: 0,
-  listClass: '',
-  itemClass: '',
-  listTag: 'div',
-  itemTag: 'div',
-  disableTransform: false,
-  skipHover: false,
-  sizeField: 'size',
-  startAtBottom: false,
-  initialScrollPercent: null,
-  stickToBottom: false,
-  stickToBottomThreshold: 50,
-  skeletonWhileScrolling: false
-})
+const {
+  items,
+  minItemSize,
+  keyField = 'id',
+  direction = 'vertical',
+  pageMode = false,
+  prerender = 0,
+  buffer = 500,
+  emitUpdate = false,
+  updateInterval = 0,
+  listClass = '',
+  itemClass = '',
+  listTag = 'div',
+  itemTag = 'div',
+  disableTransform = false,
+  skipHover = false,
+  sizeField = 'size',
+  startAtBottom = false,
+  initialScrollPercent = null,
+  stickToBottom = false,
+  stickToBottomThreshold = 50,
+  skeletonWhileScrolling = false,
+} = defineProps<DynamicScrollerProps>()
 
 const emit = defineEmits<DynamicScrollerEmits>()
+
+defineSlots<{
+  before: () => any
+  default: (props: { item: VirtualScrollerItem | null | undefined; index: number; active: boolean; itemWithSize: any }) => any
+  'empty-item': (props: { index: number }) => any
+  skeleton: (props: { item: VirtualScrollerItem | null | undefined; index: number }) => any
+  empty: () => any
+  after: () => any
+}>()
 
 // Refs using useTemplateRef for better type safety
 const scrollerRef = useTemplateRef<InstanceType<typeof RecycleScroller>>('scrollerRef')
@@ -171,7 +180,7 @@ onUnmounted(() => {
 })
 
 // State
-const items = ref<VirtualScrollerItem[]>(props.items || [])
+const localItems = ref<VirtualScrollerItem[]>(items || [])
 
 // Batched size store: plain Map (non-reactive) + version counter for coalesced updates.
 // Instead of ref<Map> where each .set() triggers reactivity (causing O(N*n) cascade
@@ -239,14 +248,14 @@ const itemsWithSize = computed(() => {
 
   // Fast path: only sizes changed (not the items list). Patch just the dirty
   // entries in O(dirty) time instead of scanning all N items.
-  if (!_forceFullRebuild && _dirtyKeys.size > 0 && _cachedItemsWithSize.length === items.value.length && _cachedItemsWithSize.length > 0) {
+  if (!_forceFullRebuild && _dirtyKeys.size > 0 && _cachedItemsWithSize.length === localItems.value.length && _cachedItemsWithSize.length > 0) {
     let patched = false
     for (const key of _dirtyKeys) {
       const idx = _cachedKeyIndex.get(key)
       if (idx === undefined) continue
       const prev = _cachedItemsWithSize[idx]
       if (!prev) continue
-      const newSize = _sizeMap.get(key) || props.minItemSize
+      const newSize = _sizeMap.get(key) || minItemSize
       if (prev.size !== newSize) {
         const entry = { id: prev.id, item: prev.item, size: newSize, isValid: prev.isValid }
         _cachedItemsWithSize[idx] = entry
@@ -272,13 +281,13 @@ const itemsWithSize = computed(() => {
   const seenKeys = new Set<string | number>()
   const newKeyIndex = new Map<string | number, number>()
 
-  for (const item of items.value) {
+  for (const item of localItems.value) {
     if (!isItemValid(item)) {
-      const id = item?.[props.keyField] ?? item?.id ?? `invalid-${result.length}`
+      const id = item?.[keyField] ?? item?.id ?? `invalid-${result.length}`
       result.push({
         id: id as string | number,
         item,
-        size: props.minItemSize,
+        size: minItemSize,
         isValid: false
       })
       anyChanged = true
@@ -287,7 +296,7 @@ const itemsWithSize = computed(() => {
 
     const key = getItemKey(item)
     seenKeys.add(key)
-    const size = _sizeMap.get(key) || props.minItemSize
+    const size = _sizeMap.get(key) || minItemSize
     const prev = _cachedKeyMap.get(key)
 
     if (prev && prev.item === item && prev.size === size) {
@@ -331,7 +340,7 @@ const updateItemSize = (key: string | number, size: number) => {
 }
 
 const getItemSize = (key: string | number): number => {
-  return _sizeMap.get(key) || props.minItemSize
+  return _sizeMap.get(key) || minItemSize
 }
 
 const removeItemSize = (key: string | number): void => {
@@ -377,8 +386,8 @@ const handleScrollEnd = () => {
 }
 
 // Watch for items changes
-watch(() => props.items, (newItems: VirtualScrollerItem[] | null | undefined) => {
-  items.value = newItems || []
+watch(() => items, (newItems: VirtualScrollerItem[] | null | undefined) => {
+  localItems.value = newItems || []
   // Mark for full rebuild since the items array itself changed
   _forceFullRebuild = true
 
@@ -404,10 +413,10 @@ onMounted(() => {
   if (isClient.value) {
     // Initialize sizes for existing items
     let initialized = false
-    items.value.forEach(item => {
+    localItems.value.forEach(item => {
       const key = getItemKey(item)
       if (!_sizeMap.has(key)) {
-        _sizeMap.set(key, props.minItemSize)
+        _sizeMap.set(key, minItemSize)
         initialized = true
       }
     })
@@ -459,7 +468,7 @@ provide('dynamicScrollerContext', {
   getItemSize,
   removeItemSize,
   sharedResizeObserver,
-  direction: computed(() => props.direction)
+  direction: computed(() => direction)
 })
 </script>
 

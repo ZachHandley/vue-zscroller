@@ -59,42 +59,51 @@
 import { computed, watch, useTemplateRef, toRef } from 'vue'
 import RecycleScroller from './RecycleScroller.vue'
 import { useGridLayout } from '../composables/useGridLayout'
-import type { GridScrollerProps, GridScrollerEmits, ResizeEvent, VisibilityEvent, UpdateEvent } from '../types'
+import type { GridScrollerProps, GridScrollerEmits, GridScrollerSlotProps, ResizeEvent, VisibilityEvent, UpdateEvent } from '../types'
 
-interface Props extends GridScrollerProps {}
-
-const props = withDefaults(defineProps<Props>(), {
-  keyField: 'id',
-  direction: 'vertical',
-  minColumns: 1,
-  maxColumns: Infinity,
-  columns: null,
-  rowGap: 0,
-  columnGap: 0,
-  gap: 0,
-  pageMode: false,
-  prerender: 0,
-  buffer: 200,
-  emitUpdate: false,
-  updateInterval: 0,
-  listClass: '',
-  itemClass: '',
-  listTag: 'div',
-  itemTag: 'div',
-  disableTransform: false,
-  skipHover: false,
-  startAtBottom: false,
-  initialScrollPercent: null
-})
+const {
+  items,
+  keyField = 'id',
+  itemWidth,
+  itemHeight,
+  minColumns = 1,
+  maxColumns = Infinity,
+  columns = null,
+  rowGap = 0,
+  columnGap = 0,
+  gap = 0,
+  direction = 'vertical',
+  pageMode = false,
+  prerender = 0,
+  buffer = 200,
+  emitUpdate = false,
+  updateInterval = 0,
+  listClass = '',
+  itemClass = '',
+  listTag = 'div',
+  itemTag = 'div',
+  disableTransform = false,
+  skipHover = false,
+  startAtBottom = false,
+  initialScrollPercent = null,
+} = defineProps<GridScrollerProps>()
 
 const emit = defineEmits<GridScrollerEmits>()
+
+defineSlots<{
+  default: (props: GridScrollerSlotProps) => any
+  before: () => any
+  after: () => any
+  empty: () => any
+  loading: () => any
+}>()
 
 const containerRef = useTemplateRef<HTMLElement>('containerRef')
 const scrollerRef = useTemplateRef<InstanceType<typeof RecycleScroller>>('scrollerRef')
 
 // Resolve gaps: specific overrides shorthand
-const resolvedRowGap = computed(() => props.rowGap || props.gap)
-const resolvedColumnGap = computed(() => props.columnGap || props.gap)
+const resolvedRowGap = computed(() => rowGap || gap)
+const resolvedColumnGap = computed(() => columnGap || gap)
 
 const {
   isMeasured,
@@ -107,19 +116,19 @@ const {
   gridViewSecondarySize
 } = useGridLayout({
   containerElement: containerRef,
-  itemWidth: toRef(props, 'itemWidth'),
-  itemHeight: toRef(props, 'itemHeight'),
+  itemWidth: toRef(() => itemWidth),
+  itemHeight: toRef(() => itemHeight),
   columnGap: resolvedColumnGap,
   rowGap: resolvedRowGap,
-  minColumns: toRef(props, 'minColumns'),
-  maxColumns: toRef(props, 'maxColumns'),
-  columnsOverride: toRef(props, 'columns'),
-  direction: toRef(props, 'direction')
+  minColumns: toRef(() => minColumns),
+  maxColumns: toRef(() => maxColumns),
+  columnsOverride: toRef(() => columns),
+  direction: toRef(() => direction)
 })
 
 // Gate items on container measurement to prevent "all items visible" errors
 // when RecycleScroller hasn't yet established its scroll container height
-const effectiveItems = computed(() => isMeasured.value ? (props.items || []) : [])
+const effectiveItems = computed(() => isMeasured.value ? (items || []) : [])
 
 // Emit when columns change
 watch(computedColumns, (newCols, oldCols) => {

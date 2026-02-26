@@ -25,17 +25,18 @@
     "vuejs",
     "plugin"
   ],
-  "main": "dist/zvue-virtual-scroller.umd.js",
-  "module": "dist/zvue-virtual-scroller.esm.mjs",
-  "unpkg": "dist/zvue-virtual-scroller.min.js",
   "sideEffects": true,
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/zvue-virtual-scroller.esm.mjs",
-      "require": "./dist/zvue-virtual-scroller.umd.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/zvue-virtual-scroller.umd.js"
     }
   },
+  "main": "dist/zvue-virtual-scroller.umd.js",
+  "module": "dist/zvue-virtual-scroller.esm.mjs",
+  "unpkg": "dist/zvue-virtual-scroller.min.js",
+  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
@@ -54,11 +55,10 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.6.2",
     "vite": "^5.4.10",
-    "vite-plugin-dts": "^3.9.1",
+    "vite-plugin-dts": "^4.5.4",
     "vue": "^3.5.13",
     "vue-tsc": "^2.2.8"
   },
-  "types": "dist/index.d.ts",
   "browserslist": [
     "> 1%",
     "last 2 versions",

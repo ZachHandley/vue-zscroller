@@ -1,4 +1,4 @@
-export interface VirtualScrollerItem<T = any> {
+export interface VirtualScrollerItem<_T = any> {
   id?: string | number
   size?: number
   type?: string
@@ -59,6 +59,8 @@ export interface ScrollerProps {
   stickToBottomThreshold?: number
   /** When enabled, shows lightweight skeleton placeholders during active scrolling instead of rendering full item content. */
   skeletonWhileScrolling?: boolean
+  /** Optional filter function applied to items before rendering. Items for which the function returns false are excluded. */
+  filter?: (item: VirtualScrollerItem) => boolean
 }
 
 export interface DynamicScrollerProps extends ScrollerProps {
@@ -126,28 +128,6 @@ export interface DynamicScrollerItemEmits {
   (e: 'resize', size: number): void
 }
 
-export type ScrollerEmitsOptions = {
-  resize: (event: ResizeEvent) => void
-  visible: (event: VisibilityEvent) => void
-  hidden: (event: VisibilityEvent) => void
-  update: (event: UpdateEvent) => void
-  'scroll-start': () => void
-  'scroll-end': () => void
-}
-
-export type DynamicScrollerEmitsOptions = {
-  resize: (event: ResizeEvent) => void
-  visible: (event: VisibilityEvent) => void
-  hidden: (event: VisibilityEvent) => void
-  update: (event: UpdateEvent) => void
-  'scroll-start': () => void
-  'scroll-end': () => void
-}
-
-export type DynamicScrollerItemEmitsOptions = {
-  resize: (size: number) => void
-}
-
 export interface IdStateOptions {
   idProp?: string | ((vm: any) => string | number)
 }
@@ -163,7 +143,7 @@ export interface VirtualScrollerSlotProps<T = any> {
 }
 
 export interface DynamicScrollerSlotProps<T = any> extends VirtualScrollerSlotProps<T> {
-  itemWithSize: (VirtualScrollerItem<T> & { size: number; isValid?: boolean }) | null | undefined
+  itemWithSize: (VirtualScrollerItem<T> & { size: number, isValid?: boolean }) | null | undefined
 }
 
 // GridScroller types
@@ -193,6 +173,8 @@ export interface GridScrollerProps {
   skipHover?: boolean
   startAtBottom?: boolean
   initialScrollPercent?: number | null
+  /** Optional filter function applied to items before rendering. Items for which the function returns false are excluded. */
+  filter?: (item: VirtualScrollerItem) => boolean
 }
 
 export interface GridScrollerEmits {
@@ -203,16 +185,6 @@ export interface GridScrollerEmits {
   (e: 'scroll-start'): void
   (e: 'scroll-end'): void
   (e: 'columns-change', columns: number): void
-}
-
-export type GridScrollerEmitsOptions = {
-  resize: (event: ResizeEvent) => void
-  visible: (event: VisibilityEvent) => void
-  hidden: (event: VisibilityEvent) => void
-  update: (event: UpdateEvent) => void
-  'scroll-start': () => void
-  'scroll-end': () => void
-  'columns-change': (columns: number) => void
 }
 
 export interface GridScrollerSlotProps<T = any> {

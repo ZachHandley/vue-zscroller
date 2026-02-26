@@ -100,9 +100,9 @@ The library now exports enhanced composables for advanced use cases:
 ```typescript
 import {
   useSlotRefManager,
+  useSSRSafeEnhanced,
   useVirtualScrollCore,
-  useVirtualScrollPerformance,
-  useSSRSafeEnhanced
+  useVirtualScrollPerformance
 } from 'zvue-virtual-scroller'
 
 // Advanced slot management with automatic cleanup

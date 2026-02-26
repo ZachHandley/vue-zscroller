@@ -1,5 +1,5 @@
-import { ref, onMounted } from 'vue'
 import type { UseSSRSafeReturn } from '../types/composables'
+import { onMounted, ref } from 'vue'
 
 export function useSSRSafe(): UseSSRSafeReturn {
   const isClient = ref(false)
@@ -26,6 +26,6 @@ export function useSSRSafe(): UseSSRSafeReturn {
     isClient,
     isServer,
     onClientSide,
-    onServerSide
+    onServerSide,
   }
 }

@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 
 import ChatDemo from './components/ChatDemo.vue'
 import Dynamic from './components/DynamicScrollerDemo.vue'

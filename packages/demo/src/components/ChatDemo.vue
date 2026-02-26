@@ -34,6 +34,7 @@
 
       <template #default="{ item, index, active }">
         <DynamicScrollerItem
+          v-if="item"
           :item="item"
           :active="active"
           :size-dependencies="[
@@ -43,7 +44,7 @@
           :data-active="active"
           :title="`Click to change message ${index}`"
           class="message"
-          @click="changeMessage(item)"
+          @click="changeMessage(item as ChatItem)"
         >
           <div class="avatar">
             <img

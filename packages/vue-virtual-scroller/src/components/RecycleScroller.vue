@@ -30,7 +30,7 @@
         v-for="view in pool"
         :key="view.nr.id"
         :view="view"
-        :item-tag="itemTag"
+        :item-tag="itemTag!"
         :style="getViewStyle(view)"
         class="vue-recycle-scroller__item-view"
         :class="[
@@ -103,9 +103,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, shallowReactive, markR
 import ItemView from './ItemView.vue'
 import config from '../config'
 import { getScrollParent } from '../scrollparent'
-import type { ScrollerProps, ScrollerEmits, VirtualScrollerItem, VisibilityEvent } from '../types'
-
-interface Props extends ScrollerProps {}
+import type { ScrollerEmits, ScrollerProps, VirtualScrollerItem, VisibilityEvent } from '../types'
 
 type ViewType = string | number
 
@@ -128,36 +126,47 @@ interface InternalView {
   }
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  keyField: 'id',
-  direction: 'vertical',
-  itemSize: null,
-  minItemSize: 50,
-  gridItems: 1,
-  itemSecondarySize: 0,
-  gridViewSize: 0,
-  gridViewSecondarySize: 0,
-  sizeField: 'size',
-  typeField: 'type',
-  pageMode: false,
-  prerender: 0,
-  buffer: 500,
-  emitUpdate: false,
-  updateInterval: 0,
-  listClass: '',
-  itemClass: '',
-  listTag: 'div',
-  itemTag: 'div',
-  disableTransform: false,
-  skipHover: false,
-  startAtBottom: false,
-  initialScrollPercent: null,
-  stickToBottom: false,
-  stickToBottomThreshold: 50,
-  skeletonWhileScrolling: false
-})
+const {
+  items: itemsProp,
+  keyField = 'id',
+  direction = 'vertical',
+  itemSize = null,
+  minItemSize = 50,
+  gridItems = 1,
+  itemSecondarySize = 0,
+  gridViewSize = 0,
+  gridViewSecondarySize = 0,
+  sizeField = 'size',
+  typeField = 'type',
+  pageMode = false,
+  prerender = 0,
+  buffer = 500,
+  emitUpdate = false,
+  updateInterval = 0,
+  listClass = '',
+  itemClass = '',
+  listTag = 'div',
+  itemTag = 'div',
+  disableTransform = false,
+  skipHover = false,
+  startAtBottom = false,
+  initialScrollPercent = null,
+  stickToBottom = false,
+  stickToBottomThreshold = 50,
+  skeletonWhileScrolling = false,
+  filter,
+} = defineProps<ScrollerProps>()
 
 const emit = defineEmits<ScrollerEmits>()
+
+defineSlots<{
+  before: () => any
+  default: (props: { item: VirtualScrollerItem | null | undefined; index: number; active: boolean }) => any
+  'empty-item': (props: { index: number }) => any
+  empty: () => any
+  after: () => any
+  skeleton: (props: { item: VirtualScrollerItem | null | undefined; index: number }) => any
+}>()
 
 const scrollElement = useTemplateRef<HTMLElement>('scrollElement')
 const beforeElement = useTemplateRef<HTMLElement>('beforeElement')
@@ -171,7 +180,7 @@ const startIndex = ref(0)
 const endIndex = ref(0)
 const isScrolling = ref(false)
 const shouldShowSkeleton = (view: InternalView): boolean => {
-  if (!props.skeletonWhileScrolling) return false
+  if (!skeletonWhileScrolling) return false
   if (!ready.value) return true
   return view.nr.fresh
 }
@@ -188,7 +197,10 @@ watch(isScrolling, (newVal, oldVal) => {
 
 const isAtBottom = ref(false)
 
-const items = computed<VirtualScrollerItem[]>(() => props.items || [])
+const items = computed<VirtualScrollerItem[]>(() => {
+  const raw = itemsProp || []
+  return filter ? raw.filter(filter) : raw
+})
 const simpleArray = computed(() => items.value.length > 0 && typeof items.value[0] !== 'object')
 
 const views = new Map<string | number, InternalView>()
@@ -214,7 +226,7 @@ const _newVisibleKeys = new Map<string | number, { item: VirtualScrollerItem; in
 // Cached min size — updated as a side-effect of sizeData computation.
 // Used by checkPositionDiff to avoid forcing a full sizeData recompute
 // just to read the minimum item size threshold.
-const cachedMinSize = ref(props.minItemSize)
+const cachedMinSize = ref(minItemSize)
 
 // Incremental accumulator cache — avoids full O(N) rebuild when only a few
 // items change sizes (the common case for DynamicScroller size updates).
@@ -223,22 +235,22 @@ let _prevItemsLength = 0
 let _prevComputedMinSize = Number.POSITIVE_INFINITY
 
 const sizeData = computed(() => {
-  if (props.itemSize !== null) {
+  if (itemSize !== null) {
     _prevEntries = []
     _prevItemsLength = 0
-    _prevComputedMinSize = props.minItemSize
-    cachedMinSize.value = props.minItemSize
+    _prevComputedMinSize = minItemSize
+    cachedMinSize.value = minItemSize
     return {
       entries: [] as SizeEntry[],
-      total: Math.ceil(items.value.length / (props.gridItems || 1)) * props.itemSize,
-      computedMinSize: props.minItemSize
+      total: Math.ceil(items.value.length / (gridItems || 1)) * itemSize,
+      computedMinSize: minItemSize
     }
   }
 
   const itemsArr = items.value
   const count = itemsArr.length
-  const sField = props.sizeField
-  const minSize = props.minItemSize
+  const sField = sizeField
+  const minSize = minItemSize
 
   // Incremental path: same-length items array — scan for first size diff
   // and only rebuild the accumulator from that point forward.
@@ -346,7 +358,7 @@ const sizeData = computed(() => {
 })
 
 const wrapperStyle = computed<CSSProperties>(() => {
-  const sizeKey = props.direction === 'vertical' ? 'minHeight' : 'minWidth'
+  const sizeKey = direction === 'vertical' ? 'minHeight' : 'minWidth'
   return {
     [sizeKey]: `${Math.max(totalSize.value, 0)}px`
   }
@@ -358,7 +370,7 @@ const isItemValid = (item: VirtualScrollerItem | null | undefined): boolean => {
 
 const getViewType = (item: VirtualScrollerItem | null | undefined): ViewType => {
   if (!item || typeof item !== 'object') return 'default'
-  return (item[props.typeField] as ViewType) ?? 'default'
+  return (item[typeField] as ViewType) ?? 'default'
 }
 
 const getRecycledPool = (type: ViewType): InternalView[] => {
@@ -377,7 +389,7 @@ const createView = (index: number, item: VirtualScrollerItem | null | undefined,
     used: true,
     key,
     type,
-    fresh: isScrolling.value && props.skeletonWhileScrolling
+    fresh: isScrolling.value && skeletonWhileScrolling
   })
 
   const view = shallowReactive({
@@ -397,7 +409,7 @@ const getRecycledView = (type: ViewType): InternalView | undefined => {
   const view = recycledPool.pop()
   if (view) {
     view.nr.used = true
-    view.nr.fresh = isScrolling.value && props.skeletonWhileScrolling
+    view.nr.fresh = isScrolling.value && skeletonWhileScrolling
   }
   return view
 }
@@ -424,9 +436,9 @@ const getScroll = () => {
   const el = scrollElement.value
   if (!el) return { start: 0, end: 0 }
 
-  const isVertical = props.direction === 'vertical'
+  const isVertical = direction === 'vertical'
 
-  if (props.pageMode) {
+  if (pageMode) {
     const bounds = el.getBoundingClientRect()
     const boundsSize = isVertical ? bounds.height : bounds.width
     let start = -(isVertical ? bounds.top : bounds.left)
@@ -464,21 +476,21 @@ const getViewportExtent = (): number => {
   const el = scrollElement.value
   if (!el) return 0
 
-  if (props.pageMode) {
-    return props.direction === 'vertical' ? window.innerHeight : window.innerWidth
+  if (pageMode) {
+    return direction === 'vertical' ? window.innerHeight : window.innerWidth
   }
 
-  return props.direction === 'vertical' ? el.clientHeight : el.clientWidth
+  return direction === 'vertical' ? el.clientHeight : el.clientWidth
 }
 
 const getFixedItemPosition = (index: number): { position: number; offset: number } => {
-  const gridItems = props.gridItems || 1
-  const baseItemSize = props.itemSize || props.minItemSize
-  const itemSecondarySize = props.itemSecondarySize || baseItemSize
+  const effectiveGridItems = gridItems || 1
+  const baseItemSize = itemSize || minItemSize
+  const effectiveSecondarySize = itemSecondarySize || baseItemSize
 
   return {
-    position: Math.floor(index / gridItems) * baseItemSize,
-    offset: (index % gridItems) * itemSecondarySize
+    position: Math.floor(index / effectiveGridItems) * baseItemSize,
+    offset: (index % effectiveGridItems) * effectiveSecondarySize
   }
 }
 
@@ -510,8 +522,8 @@ const findIndexFromOffset = (offset: number): number => {
 }
 
 const getItemSizeAt = (index: number): number => {
-  if (props.itemSize !== null) return props.itemSize
-  return sizeData.value.entries[index]?.size || props.minItemSize
+  if (itemSize !== null) return itemSize
+  return sizeData.value.entries[index]?.size || minItemSize
 }
 
 const itemsLimitError = () => {
@@ -584,13 +596,13 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
     visibleStartIndex = 0
     visibleEndIndex = 0
     nextTotalSize = 0
-  } else if (props.prerender > 0 && !ready.value) {
+  } else if (prerender > 0 && !ready.value) {
     newStartIndex = 0
-    newEndIndex = Math.min(props.prerender, count)
+    newEndIndex = Math.min(prerender, count)
     visibleStartIndex = newStartIndex
     visibleEndIndex = newEndIndex
-    nextTotalSize = props.itemSize !== null
-      ? Math.ceil(count / (props.gridItems || 1)) * props.itemSize
+    nextTotalSize = itemSize !== null
+      ? Math.ceil(count / (gridItems || 1)) * itemSize
       : sizeData.value.total
   } else {
     const scroll = getScroll()
@@ -600,7 +612,7 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
       // Update frequently with small batches rather than infrequently with
       // large batches. Using minSize/3 means ~1-2 items recycle per update
       // instead of waiting for a full item height and bursting 5-10 at once.
-      const minSize = props.itemSize === null ? cachedMinSize.value : props.itemSize
+      const minSize = itemSize === null ? cachedMinSize.value : itemSize
       const threshold = Math.max(minSize / 3, 12)
       if (positionDiff < threshold) {
         return { continuous: true }
@@ -609,25 +621,25 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
 
     lastUpdateScrollPosition = scroll.start
 
-    scroll.start -= props.buffer
-    scroll.end += props.buffer
+    scroll.start -= buffer
+    scroll.end += buffer
 
     let beforeSize = 0
     if (beforeElement.value) {
-      beforeSize = props.direction === 'vertical'
+      beforeSize = direction === 'vertical'
         ? beforeElement.value.scrollHeight
         : beforeElement.value.scrollWidth
       scroll.start -= beforeSize
     }
 
     if (afterElement.value) {
-      const afterSize = props.direction === 'vertical'
+      const afterSize = direction === 'vertical'
         ? afterElement.value.scrollHeight
         : afterElement.value.scrollWidth
       scroll.end += afterSize
     }
 
-    if (props.itemSize === null) {
+    if (itemSize === null) {
       newStartIndex = findIndexFromOffset(scroll.start)
       newEndIndex = Math.min(findIndexFromOffset(scroll.end) + 1, count)
 
@@ -638,23 +650,23 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
 
       nextTotalSize = sizeData.value.total
     } else {
-      const gridItems = props.gridItems || 1
-      const itemSize = props.itemSize
+      const effectiveGridItems = gridItems || 1
+      const effectiveItemSize = itemSize
 
-      newStartIndex = Math.floor((scroll.start / itemSize) * gridItems)
-      const remainder = newStartIndex % gridItems
+      newStartIndex = Math.floor((scroll.start / effectiveItemSize) * effectiveGridItems)
+      const remainder = newStartIndex % effectiveGridItems
       newStartIndex -= remainder
 
-      newEndIndex = Math.ceil((scroll.end / itemSize) * gridItems)
-      visibleStartIndex = Math.max(0, Math.floor(((scroll.start - beforeSize) / itemSize) * gridItems))
-      visibleEndIndex = Math.floor(((scroll.end - beforeSize) / itemSize) * gridItems)
+      newEndIndex = Math.ceil((scroll.end / effectiveItemSize) * effectiveGridItems)
+      visibleStartIndex = Math.max(0, Math.floor(((scroll.start - beforeSize) / effectiveItemSize) * effectiveGridItems))
+      visibleEndIndex = Math.floor(((scroll.end - beforeSize) / effectiveItemSize) * effectiveGridItems)
 
       newStartIndex = Math.max(0, newStartIndex)
       newEndIndex = Math.min(count, newEndIndex)
       visibleStartIndex = Math.max(0, visibleStartIndex)
       visibleEndIndex = Math.min(count, visibleEndIndex)
 
-      nextTotalSize = Math.ceil(count / gridItems) * itemSize
+      nextTotalSize = Math.ceil(count / effectiveGridItems) * effectiveItemSize
     }
   }
 
@@ -685,10 +697,10 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
     if (!elementSize) continue
 
     const item = items.value[i]
-    const key = simpleArray.value ? i : item?.[props.keyField]
+    const key = simpleArray.value ? i : item?.[keyField]
 
     if (key == null) {
-      throw new Error(`Key is ${String(key)} on item (keyField is '${props.keyField}')`)
+      throw new Error(`Key is ${String(key)} on item (keyField is '${keyField}')`)
     }
 
     let view = views.get(key)
@@ -711,7 +723,7 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
       view.item = item
     }
 
-    if (props.itemSize === null) {
+    if (itemSize === null) {
       view.position = getVariableItemPosition(i)
       view.offset = 0
     } else {
@@ -753,7 +765,7 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
   startIndex.value = newStartIndex
   endIndex.value = newEndIndex
 
-  if (props.emitUpdate) {
+  if (emitUpdate) {
     emit('update', {
       startIndex: newStartIndex,
       endIndex: newEndIndex,
@@ -767,7 +779,7 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
     if (sortTimer) {
       clearTimeout(sortTimer)
     }
-    sortTimer = window.setTimeout(sortViews, props.updateInterval + 300)
+    sortTimer = window.setTimeout(sortViews, updateInterval + 300)
   }
 
   return { continuous }
@@ -811,7 +823,7 @@ const scheduleScrollUpdate = () => {
       if (!continuous && nonContinuousRetries < 3) {
         nonContinuousRetries++
         if (refreshTimeout) clearTimeout(refreshTimeout)
-        refreshTimeout = window.setTimeout(scheduleScrollUpdate, props.updateInterval + 100)
+        refreshTimeout = window.setTimeout(scheduleScrollUpdate, updateInterval + 100)
       } else {
         nonContinuousRetries = 0
       }
@@ -822,13 +834,13 @@ const scheduleScrollUpdate = () => {
 
   requestUpdate()
 
-  if (props.updateInterval > 0) {
+  if (updateInterval > 0) {
     updateTimeout = window.setTimeout(() => {
       updateTimeout = 0
       if (scrollDirty) {
         requestUpdate()
       }
-    }, props.updateInterval)
+    }, updateInterval)
   }
 }
 
@@ -838,13 +850,13 @@ const handleScroll = () => {
   nonContinuousRetries = 0
 
   // Track whether user is at the bottom (within threshold) for stickToBottom
-  if (props.stickToBottom) {
+  if (stickToBottom) {
     const el = scrollElement.value
     if (el) {
-      if (props.direction === 'vertical') {
-        isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - props.stickToBottomThreshold
+      if (direction === 'vertical') {
+        isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - stickToBottomThreshold
       } else {
-        isAtBottom.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - props.stickToBottomThreshold
+        isAtBottom.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - stickToBottomThreshold
       }
     }
   }
@@ -890,7 +902,7 @@ const removeListeners = () => {
 }
 
 const applyPageMode = () => {
-  if (props.pageMode) {
+  if (pageMode) {
     addListeners()
   } else {
     removeListeners()
@@ -904,17 +916,17 @@ const scrollToPosition = (position: number) => {
   let viewport: any
   let scrollDistance = Math.max(0, position)
 
-  if (props.pageMode) {
+  if (pageMode) {
     const viewportEl = getScrollParent(el)
     if (!viewportEl) return
 
-    const isVertical = props.direction === 'vertical'
+    const isVertical = direction === 'vertical'
     const scrollOffset = (viewportEl as any).tagName === 'HTML'
       ? 0
       : (isVertical ? (viewportEl as any).scrollTop : (viewportEl as any).scrollLeft)
     const bounds = viewportEl.getBoundingClientRect()
     const scroller = el.getBoundingClientRect()
-    const scrollerPosition = props.direction === 'vertical'
+    const scrollerPosition = direction === 'vertical'
       ? scroller.top - bounds.top
       : scroller.left - bounds.left
 
@@ -924,7 +936,7 @@ const scrollToPosition = (position: number) => {
     viewport = el
   }
 
-  if (props.direction === 'vertical') {
+  if (direction === 'vertical') {
     viewport.scrollTop = scrollDistance
   } else {
     viewport.scrollLeft = scrollDistance
@@ -943,7 +955,7 @@ const scrollToBottom = () => {
   if (!el) return
 
   const applyScroll = () => {
-    if (props.direction === 'vertical') {
+    if (direction === 'vertical') {
       el.scrollTop = el.scrollHeight - el.clientHeight
     } else {
       el.scrollLeft = el.scrollWidth - el.clientWidth
@@ -959,7 +971,7 @@ const scrollToBottom = () => {
     if (attempts < maxAttempts) {
       nextTick(() => {
         // Verify and adjust — covers DynamicScroller async size updates
-        const isVertical = props.direction === 'vertical'
+        const isVertical = direction === 'vertical'
         const atEnd = isVertical
           ? el.scrollTop + el.clientHeight >= el.scrollHeight - 1
           : el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
@@ -978,7 +990,7 @@ const scrollToItem = (index: number, alignment: 'start' | 'center' | 'end' | 'au
 
   let position = 0
 
-  if (props.itemSize !== null) {
+  if (itemSize !== null) {
     position = getFixedItemPosition(index).position
   } else {
     position = getVariableItemPosition(index)
@@ -986,7 +998,7 @@ const scrollToItem = (index: number, alignment: 'start' | 'center' | 'end' | 'au
 
   // Account for before slot element offset
   if (beforeElement.value) {
-    position += props.direction === 'vertical'
+    position += direction === 'vertical'
       ? beforeElement.value.scrollHeight
       : beforeElement.value.scrollWidth
   }
@@ -1013,8 +1025,8 @@ const getViewStyle = (view: InternalView): CSSProperties => {
     visibility: view.nr.used ? 'visible' : 'hidden'
   }
 
-  if (props.disableTransform) {
-    if (props.direction === 'vertical') {
+  if (disableTransform) {
+    if (direction === 'vertical') {
       style.top = `${view.position}px`
       style.left = `${view.offset}px`
     } else {
@@ -1023,19 +1035,19 @@ const getViewStyle = (view: InternalView): CSSProperties => {
     }
     style.willChange = 'unset'
   } else {
-    const mainTransform = props.direction === 'vertical' ? 'translateY' : 'translateX'
-    const crossTransform = props.direction === 'vertical' ? 'translateX' : 'translateY'
+    const mainTransform = direction === 'vertical' ? 'translateY' : 'translateX'
+    const crossTransform = direction === 'vertical' ? 'translateX' : 'translateY'
     style.transform = `${mainTransform}(${view.position}px) ${crossTransform}(${view.offset}px)`
   }
 
-  if (props.gridItems > 1) {
+  if (gridItems > 1) {
     // Use gridViewSize/gridViewSecondarySize for the actual content dimensions
     // when provided (set by GridScroller). These exclude gaps and may be stretched
     // to fill the container. Fall back to stride-based sizes for backward compat.
-    const mainSize = props.gridViewSize || props.itemSize || props.minItemSize
-    const crossSize = props.gridViewSecondarySize || props.itemSecondarySize || props.itemSize || props.minItemSize
+    const mainSize = gridViewSize || itemSize || minItemSize
+    const crossSize = gridViewSecondarySize || itemSecondarySize || itemSize || minItemSize
 
-    if (props.direction === 'vertical') {
+    if (direction === 'vertical') {
       style.width = `${crossSize}px`
       style.height = `${mainSize}px`
     } else {
@@ -1061,19 +1073,19 @@ const handlePrepend = (prependCount: number) => {
 
   // Calculate size of prepended items
   let prependSize = 0
-  if (props.itemSize !== null) {
-    const gridItems = props.gridItems || 1
-    prependSize = Math.ceil(prependCount / gridItems) * props.itemSize
+  if (itemSize !== null) {
+    const effectiveGridItems = gridItems || 1
+    prependSize = Math.ceil(prependCount / effectiveGridItems) * itemSize
   } else {
     for (let i = 0; i < prependCount; i++) {
       const item = items.value[i]
-      prependSize += (item?.[props.sizeField] as number) || props.minItemSize
+      prependSize += (item?.[sizeField] as number) || minItemSize
     }
   }
 
   // Adjust scroll position to keep viewport content stable
   nextTick(() => {
-    if (props.direction === 'vertical') {
+    if (direction === 'vertical') {
       el.scrollTop += prependSize
     } else {
       el.scrollLeft += prependSize
@@ -1082,7 +1094,7 @@ const handlePrepend = (prependCount: number) => {
   })
 }
 
-watch(() => props.items, (newItems) => {
+watch(() => itemsProp, (newItems) => {
   const newArr = newItems || []
   const oldFirstKey = previousFirstKey
   const oldLastKey = previousLastKey
@@ -1090,7 +1102,6 @@ watch(() => props.items, (newItems) => {
   const newLen = newArr.length
 
   // Update tracking state (O(1) - no array copy)
-  const keyField = props.keyField
   previousItemsLength = newLen
   previousFirstKey = newLen > 0 ? (simpleArray.value ? 0 : newArr[0]?.[keyField]) : null
   previousLastKey = newLen > 0 ? (simpleArray.value ? (newLen - 1) : newArr[newLen - 1]?.[keyField]) : null
@@ -1109,7 +1120,7 @@ watch(() => props.items, (newItems) => {
       // objects on every sizeVersion change, but if no actual sizes differ for
       // visible items, we can skip the expensive updateVisibleItems call entirely.
       let sizeChanged = false
-      const sField = props.sizeField
+      const sField = sizeField
       for (let i = startIndex.value; i < endIndex.value && i < newLen; i++) {
         const item = newArr[i]
         const key = simpleArray.value ? i : item?.[keyField]
@@ -1134,7 +1145,7 @@ watch(() => props.items, (newItems) => {
   if (newLen > oldLen) {
     if (oldFirstKey === previousFirstKey) {
       // Append detected — no recycle needed, just update
-      const shouldStick = props.stickToBottom && isAtBottom.value
+      const shouldStick = stickToBottom && isAtBottom.value
       nextTick(() => {
         updateVisibleItems(false)
         if (shouldStick) {
@@ -1157,7 +1168,7 @@ watch(() => props.items, (newItems) => {
   nextTick(() => updateVisibleItems(true))
 })
 
-watch(() => props.pageMode, () => {
+watch(() => pageMode, () => {
   applyPageMode()
   nextTick(() => {
     updateVisibleItems(false)
@@ -1165,16 +1176,16 @@ watch(() => props.pageMode, () => {
 })
 
 watch([
-  () => props.itemSize,
-  () => props.minItemSize,
-  () => props.sizeField,
-  () => props.typeField,
-  () => props.buffer,
-  () => props.gridItems,
-  () => props.itemSecondarySize,
-  () => props.gridViewSize,
-  () => props.gridViewSecondarySize,
-  () => props.direction
+  () => itemSize,
+  () => minItemSize,
+  () => sizeField,
+  () => typeField,
+  () => buffer,
+  () => gridItems,
+  () => itemSecondarySize,
+  () => gridViewSize,
+  () => gridViewSecondarySize,
+  () => direction
 ], () => {
   nextTick(() => {
     updateVisibleItems(true)
@@ -1201,15 +1212,15 @@ onMounted(() => {
     updateVisibleItems(true)
     handleResize()
 
-    if (props.initialScrollPercent !== null) {
-      scrollToPercent(props.initialScrollPercent)
-    } else if (props.startAtBottom) {
+    if (initialScrollPercent !== null) {
+      scrollToPercent(initialScrollPercent)
+    } else if (startAtBottom) {
       scrollToBottom()
     }
 
     // When stickToBottom is enabled, treat initial state as "at bottom"
     // so that items appended before the user scrolls will auto-scroll
-    if (props.stickToBottom) {
+    if (stickToBottom) {
       isAtBottom.value = true
     }
   })

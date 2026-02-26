@@ -17,20 +17,22 @@ import { useSSRSafe } from '../composables/useSSRSafe'
 import type { DynamicScrollerItemProps, DynamicScrollerItemEmits } from '../types'
 import { useItemValidation } from '../composables/useAsyncItems'
 
-interface Props extends DynamicScrollerItemProps {}
-
-const props = withDefaults(defineProps<Props>(), {
-  minItemSize: 50,
-  watchData: false,
-  tag: 'div',
-  emitResize: false,
-  sizeDependencies: () => [],
-  active: false,
-  item: () => ({ size: 0 }),
-  dataIndex: 0
-})
+const {
+  minItemSize = 50,
+  watchData = false,
+  tag = 'div',
+  emitResize = false,
+  sizeDependencies = [],
+  active = false,
+  item = { size: 0 },
+  dataIndex = 0,
+} = defineProps<DynamicScrollerItemProps>()
 
 const emit = defineEmits<DynamicScrollerItemEmits>()
+
+defineSlots<{
+  default: () => any
+}>()
 
 interface DynamicScrollerContext {
   updateItemSize: (key: string | number, size: number) => void
@@ -52,17 +54,17 @@ const dynamicContext = inject<DynamicScrollerContext | null>('dynamicScrollerCon
 // Utilities for consistent key handling
 const { getItemKey } = useItemValidation()
 
-const itemKey = computed(() => getItemKey(props.item, `dynamic-item-${props.dataIndex}`))
+const itemKey = computed(() => getItemKey(item, `dynamic-item-${dataIndex}`))
 
 // Dynamic size management with shared observer and direct size reporting
 const dynamicSize = useDynamicSize({
-  minItemSize: props.minItemSize,
+  minItemSize,
   direction: dynamicContext?.direction?.value ?? 'vertical',
   sharedObserver: dynamicContext?.sharedResizeObserver ?? null,
   onSizeChange: (size: number) => {
     // Shared observer detected a size change -- report directly to parent.
     // This replaces the old watch(itemSize) watcher.
-    if (props.active) {
+    if (active) {
       syncMeasuredSize(size)
     }
   }
@@ -80,17 +82,17 @@ const {
 const itemStyle = computed(() => {
   const dir = dynamicContext?.direction?.value ?? 'vertical'
   const prop = dir === 'horizontal' ? 'minWidth' : 'minHeight'
-  return { [prop]: `${props.minItemSize || 50}px` }
+  return { [prop]: `${minItemSize || 50}px` }
 })
 
 const syncMeasuredSize = (sizeOverride?: number) => {
-  const resolvedSize = Math.max(sizeOverride ?? measureSize(), props.minItemSize)
+  const resolvedSize = Math.max(sizeOverride ?? measureSize(), minItemSize)
 
   if (dynamicContext) {
     dynamicContext.updateItemSize(itemKey.value, resolvedSize)
   }
 
-  if (props.emitResize) {
+  if (emitResize) {
     emit('resize', resolvedSize)
   }
 }
@@ -99,7 +101,7 @@ const syncMeasuredSize = (sizeOverride?: number) => {
 // updateSize() already reports via onSizeChange → syncMeasuredSize, so
 // we don't call syncMeasuredSize separately (avoids double measurement).
 watch(
-  () => [props.active, props.item] as const,
+  () => [active, item] as const,
   ([newActive, newItem], [oldActive, oldItem]) => {
     if (!isClient.value) return
     if (newActive && (!oldActive || newItem !== oldItem)) {
@@ -112,11 +114,11 @@ watch(
 
 // Optional: watch sizeDependencies for content-driven size changes
 // Only active when watchData is true and sizeDependencies is provided.
-if (props.watchData) {
+if (watchData) {
   watch(
-    () => props.sizeDependencies,
+    () => sizeDependencies,
     () => {
-      if (props.active && isClient.value) {
+      if (active && isClient.value) {
         nextTick(() => {
           updateSize()
         })
@@ -133,7 +135,7 @@ onMounted(() => {
   if (element.value) {
     setElement(element.value)
     const size = measureSize()
-    if (size > props.minItemSize && dynamicContext) {
+    if (size > minItemSize && dynamicContext) {
       dynamicContext.updateItemSize(itemKey.value, size)
     }
     setCurrentSize(size)

@@ -87,6 +87,7 @@ onMounted(() => {
     >
       <template #default="{ item, index, column, row, cellWidth, cellHeight }">
         <div
+          v-if="item"
           class="grid-cell"
           :style="{ width: cellWidth + 'px', height: cellHeight + 'px' }"
         >

@@ -29,6 +29,7 @@
 
       <template #default="{ item, index, active }">
         <DynamicScrollerItem
+          v-if="item"
           :item="item"
           :index="index"
           :active="active"
@@ -48,14 +49,14 @@
 
     <RecycleScroller
       v-else
-      :items="filteredItems.map((o, i) => `${i}: ${o.substr(0, 42)}...`)"
+      :items="filteredItems.map((o, i) => ({ id: i, text: `${i}: ${o.substr(0, 42)}...` }))"
       :item-size="54"
       class="scroller"
     >
       <template #default="{ item, index }">
-        <div class="message">
+        <div v-if="item" class="message">
           <div class="text">
-            {{ item }}
+            {{ item.text }}
           </div>
           <div class="index">
             <span>{{ index }} (index)</span>

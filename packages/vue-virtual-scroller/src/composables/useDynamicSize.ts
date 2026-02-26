@@ -1,10 +1,11 @@
-import { ref, type Ref } from 'vue'
-import { useSSRSafe } from './useSSRSafe'
+import type { Ref } from 'vue'
 import type { UseDynamicSizeReturn } from '../types/composables'
+import { ref } from 'vue'
+import { useSSRSafe } from './useSSRSafe'
 
 export interface SharedResizeObserverLike {
-  observe(el: Element, callback: (entry: ResizeObserverEntry) => void): void
-  unobserve(el: Element): void
+  observe: (el: Element, callback: (entry: ResizeObserverEntry) => void) => void
+  unobserve: (el: Element) => void
 }
 
 export interface UseDynamicSizeOptions {
@@ -15,13 +16,13 @@ export interface UseDynamicSizeOptions {
 }
 
 export function useDynamicSize(
-  options: UseDynamicSizeOptions
+  options: UseDynamicSizeOptions,
 ): UseDynamicSizeReturn {
   const {
     minItemSize,
     direction = 'vertical',
     sharedObserver = null,
-    onSizeChange
+    onSizeChange,
   } = options
 
   const { isClient } = useSSRSafe()
@@ -44,7 +45,8 @@ export function useDynamicSize(
   }
 
   const measureAndUpdate = () => {
-    if (!isClient.value) return
+    if (!isClient.value)
+      return
     const newSize = measureSize()
     if (hasSizeChanged(currentSize.value, newSize)) {
       currentSize.value = newSize
@@ -60,7 +62,8 @@ export function useDynamicSize(
     if (entry.borderBoxSize?.length) {
       const box = entry.borderBoxSize[0]!
       size = direction === 'horizontal' ? box.inlineSize : box.blockSize
-    } else {
+    }
+    else {
       size = direction === 'horizontal'
         ? entry.contentRect.width
         : entry.contentRect.height
@@ -96,6 +99,6 @@ export function useDynamicSize(
     updateSize: measureAndUpdate,
     hasSizeChanged,
     setElement,
-    setCurrentSize
+    setCurrentSize,
   }
 }
