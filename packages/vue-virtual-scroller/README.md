@@ -1,35 +1,45 @@
 # zvue-virtual-scroller
 
 [![npm](https://img.shields.io/npm/v/zvue-virtual-scroller.svg) ![npm](https://img.shields.io/npm/dm/zvue-virtual-scroller.svg)](https://www.npmjs.com/package/zvue-virtual-scroller)
-[![vue3](https://img.shields.io/badge/vue-3.x-brightgreen.svg)](https://vuejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-supported-blue.svg)](https://www.typescriptlang.org/)
+[![vue3](https://img.shields.io/badge/vue-3.5+-brightgreen.svg)](https://vuejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
 
-A modern fork of [vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller) with TypeScript and [@vueuse/core](https://github.com/vueuse/vueuse) integration.
+A modern, ground-up TypeScript rewrite of [vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller). Blazing fast virtual scrolling for any amount of data in Vue 3.
 
-**This is a fork of the original vue-virtual-scroller by [Guillaume Chau](https://github.com/Akryum). All credit for the core functionality goes to him. This fork modernizes the codebase with TypeScript and replaces custom utilities with @vueuse/core equivalents.**
+The original `vue-virtual-scroller` was created by [Guillaume Chau (Akryum)](https://github.com/Akryum) -- all credit for the foundational design and API goes to him. This project is a **complete rewrite**, not a simple fork: every component has been rebuilt from scratch with TypeScript, Vue 3.5+ patterns, and `@vueuse/core` integration.
 
-Blazing fast scrolling of any amount of data | [Original Live demo](https://vue-virtual-scroller-demo.netlify.app/) | [Video demo](https://www.youtube.com/watch?v=Uzq1KQV8f4k)
+**Maintainer**: Zach Handley (zachhandley@gmail.com)
 
-## Sponsors
+**[Live Demo](https://zachhandley.github.io/zvue-virtual-scroller/)** | **[GitHub](https://github.com/ZachHandley/zvue-virtual-scroller)** | **[npm](https://www.npmjs.com/package/zvue-virtual-scroller)**
 
-<p align="center">
-  <a href="https://guillaume-chau.info/sponsors/" target="_blank">
-    <img src='https://akryum.netlify.app/sponsors.svg'/>
-  </a>
-</p>
+---
 
-# Installation
+## Key Features
 
-```
-npm install --save zvue-virtual-scroller
-```
+- **Full TypeScript** with strict types and comprehensive type definitions
+- **Vue 3.5+ reactive destructured props** throughout all components
+- **defineSlots** for full slot IntelliSense in your IDE
+- **Global component type augmentation** -- components are typed globally when you `app.use()` the plugin
+- **@vueuse/core integration** -- leverages battle-tested composables instead of custom utilities
+- **SSR-safe composables** with comprehensive server-side rendering support
+- **Optional item filter prop** for filtering items without re-creating the scroller
+- **CSS auto-injection** -- styles are bundled in, no separate CSS import needed
+- **Components**: RecycleScroller, DynamicScroller, DynamicScrollerItem, GridScroller
 
-```
-yarn add zvue-virtual-scroller
-```
+---
 
-```
+## Installation
+
+```bash
 pnpm add zvue-virtual-scroller
+```
+
+```bash
+npm install zvue-virtual-scroller
+```
+
+```bash
+yarn add zvue-virtual-scroller
 ```
 
 ## Default import
@@ -50,17 +60,9 @@ import { RecycleScroller } from 'zvue-virtual-scroller'
 app.component('RecycleScroller', RecycleScroller)
 ```
 
-**The line below should be included when importing the package:**
-
-```js
-import 'zvue-virtual-scroller/dist/zvue-virtual-scroller.css'
-```
-
 ## Browser
 
 ```html
-<link rel="stylesheet" href="zvue-virtual-scroller/dist/zvue-virtual-scroller.css"/>
-
 <script src="vue.js"></script>
 <script src="zvue-virtual-scroller/dist/zvue-virtual-scroller.min.js"></script>
 ```
@@ -81,11 +83,11 @@ app.component('RecycleScroller', VueVirtualScroller.RecycleScroller)
 
 ## Modern Vue 3 Features
 
-This version of `zvue-virtual-scroller` has been enhanced with modern Vue 3 features and optimizations:
+This version of `zvue-virtual-scroller` has been completely rewritten with modern Vue 3 features and optimizations:
 
 ### Key Improvements
 
-- **Modern Vue 3 Composition API**: All components now use `<script setup lang="ts">` with full TypeScript support
+- **Modern Vue 3 Composition API**: All components use `<script setup lang="ts">` with full TypeScript support
 - **@vueuse/core Integration**: Leverages battle-tested utilities for better performance and reliability
 - **useTemplateRef**: Enhanced type safety for template references
 - **Advanced Slot Ref Management**: Automatic memory cleanup with WeakMap support
@@ -95,7 +97,7 @@ This version of `zvue-virtual-scroller` has been enhanced with modern Vue 3 feat
 
 ### Modern Composables
 
-The library now exports enhanced composables for advanced use cases:
+The library exports enhanced composables for advanced use cases:
 
 ```typescript
 import {
@@ -671,6 +673,15 @@ const items = ref<Item[]>([])
 const scrollerRef = ref<InstanceType<typeof RecycleScroller>>()
 </script>
 ```
+
+---
+
+## Links
+
+- **Demo**: [zachhandley.github.io/zvue-virtual-scroller](https://zachhandley.github.io/zvue-virtual-scroller/)
+- **GitHub**: [github.com/ZachHandley/zvue-virtual-scroller](https://github.com/ZachHandley/zvue-virtual-scroller)
+- **npm**: [npmjs.com/package/zvue-virtual-scroller](https://www.npmjs.com/package/zvue-virtual-scroller)
+- **Original project**: [github.com/Akryum/vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller)
 
 ## License
 
