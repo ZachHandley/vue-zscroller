@@ -4,21 +4,21 @@
 [![vue3](https://img.shields.io/badge/vue-3.5+-brightgreen.svg)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
 
-A modern, ground-up TypeScript rewrite of [vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller) for Vue 3.5+. Blazing fast virtual scrolling for any amount of data.
+Virtual scrolling components for Vue 3.5+, written from scratch in TypeScript. Based on the API of [vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller) by [Guillaume Chau (Akryum)](https://github.com/Akryum).
 
-The original `vue-virtual-scroller` was created by [Guillaume Chau (Akryum)](https://github.com/Akryum). This project is a **complete rewrite** with TypeScript, `@vueuse/core`, `defineSlots`, and Vue 3.5+ reactive patterns.
+Not a fork -- every component was rewritten from the ground up using `<script setup lang="ts">`, `@vueuse/core`, and Vue 3.5 reactive patterns. The original API is preserved so migration is straightforward.
 
 ## Documentation
 
-Full documentation, API reference, and usage examples are in the package README:
+See the package README for full docs, props, events, and examples:
 
 **[packages/vue-virtual-scroller/README.md](./packages/vue-virtual-scroller/README.md)**
 
 ## Links
 
-- **Demo**: [zachhandley.github.io/zvue-virtual-scroller](https://zachhandley.github.io/zvue-virtual-scroller/)
+- **Demo**: [zachhandley.github.io/vue-zscroller](https://zachhandley.github.io/vue-zscroller/)
 - **npm**: [npmjs.com/package/vue-zscroller](https://www.npmjs.com/package/vue-zscroller)
-- **GitHub**: [github.com/ZachHandley/zvue-virtual-scroller](https://github.com/ZachHandley/zvue-virtual-scroller)
+- **GitHub**: [github.com/ZachHandley/vue-zscroller](https://github.com/ZachHandley/vue-zscroller)
 - **Original project**: [github.com/Akryum/vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller)
 
 ## License

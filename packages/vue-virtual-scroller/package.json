@@ -2,7 +2,7 @@
   "name": "vue-zscroller",
   "type": "module",
   "version": "1.0.0",
-  "description": "A modern fork of vue-virtual-scroller with TypeScript and @vueuse/core integration",
+  "description": "Virtual scrolling components for Vue 3.5+, rewritten in TypeScript",
   "author": {
     "name": "Guillaume Chau",
     "email": "guillaume.b.chau@gmail.com"
@@ -12,13 +12,13 @@
     "email": "zachhandley@gmail.com"
   },
   "license": "MIT",
-  "homepage": "https://github.com/ZachHandley/zvue-virtual-scroller#readme",
+  "homepage": "https://github.com/ZachHandley/vue-zscroller#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ZachHandley/zvue-virtual-scroller.git"
+    "url": "git+https://github.com/ZachHandley/vue-zscroller.git"
   },
   "bugs": {
-    "url": "https://github.com/ZachHandley/zvue-virtual-scroller/issues"
+    "url": "https://github.com/ZachHandley/vue-zscroller/issues"
   },
   "keywords": [
     "vue",

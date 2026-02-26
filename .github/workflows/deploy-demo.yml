@@ -28,7 +28,7 @@ jobs:
 
       - run: pnpm install
 
-      - run: pnpm --filter demo build -- --base /zvue-virtual-scroller/
+      - run: pnpm --filter demo build -- --base /vue-zscroller/
 
       - uses: actions/upload-pages-artifact@v3
         with:

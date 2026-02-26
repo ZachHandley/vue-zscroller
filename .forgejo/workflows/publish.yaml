@@ -130,6 +130,6 @@ jobs:
 
       - name: Sync to GitHub
         run: |
-          git remote add github https://x-access-token:${{ secrets.GH_ACCESS_TOKEN }}@github.com/ZachHandley/zvue-virtual-scroller.git
+          git remote add github https://x-access-token:${{ secrets.GH_ACCESS_TOKEN }}@github.com/ZachHandley/vue-zscroller.git
           git push github HEAD:main --force
           git push github --tags --force

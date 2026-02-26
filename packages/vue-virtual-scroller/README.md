@@ -4,27 +4,25 @@
 [![vue3](https://img.shields.io/badge/vue-3.5+-brightgreen.svg)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
 
-A modern, ground-up TypeScript rewrite of [vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller). Blazing fast virtual scrolling for any amount of data in Vue 3.
+Virtual scrolling components for Vue 3.5+, written from scratch in TypeScript. Based on the API of [vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller) by [Guillaume Chau (Akryum)](https://github.com/Akryum).
 
-The original `vue-virtual-scroller` was created by [Guillaume Chau (Akryum)](https://github.com/Akryum) -- all credit for the foundational design and API goes to him. This project is a **complete rewrite**, not a simple fork: every component has been rebuilt from scratch with TypeScript, Vue 3.5+ patterns, and `@vueuse/core` integration.
+Not a fork -- every component was rewritten from the ground up using `<script setup lang="ts">`, `@vueuse/core`, and Vue 3.5 reactive patterns. The original API is preserved so migration is straightforward.
 
 **Maintainer**: Zach Handley (zachhandley@gmail.com)
 
-**[Live Demo](https://zachhandley.github.io/zvue-virtual-scroller/)** | **[GitHub](https://github.com/ZachHandley/zvue-virtual-scroller)** | **[npm](https://www.npmjs.com/package/vue-zscroller)**
+**[Live Demo](https://zachhandley.github.io/vue-zscroller/)** | **[GitHub](https://github.com/ZachHandley/vue-zscroller)** | **[npm](https://www.npmjs.com/package/vue-zscroller)**
 
 ---
 
-## Key Features
+## Features
 
-- **Full TypeScript** with strict types and comprehensive type definitions
-- **Vue 3.5+ reactive destructured props** throughout all components
-- **defineSlots** for full slot IntelliSense in your IDE
-- **Global component type augmentation** -- components are typed globally when you `app.use()` the plugin
-- **@vueuse/core integration** -- leverages battle-tested composables instead of custom utilities
-- **SSR-safe composables** with comprehensive server-side rendering support
-- **Optional item filter prop** for filtering items without re-creating the scroller
-- **CSS auto-injection** -- styles are bundled in, no separate CSS import needed
-- **Components**: RecycleScroller, DynamicScroller, DynamicScrollerItem, GridScroller
+- Strict TypeScript with full type definitions and `defineSlots` for IDE IntelliSense
+- Global component type augmentation via `app.use()`
+- Uses `@vueuse/core` instead of rolling custom utilities
+- SSR-safe -- works with server-side rendering out of the box
+- CSS auto-injected, no separate import needed
+- Optional `filter` prop for filtering items without recreating the scroller
+- Components: RecycleScroller, DynamicScroller, DynamicScrollerItem, GridScroller
 
 ---
 
@@ -81,23 +79,9 @@ app.component('RecycleScroller', VueVirtualScroller.RecycleScroller)
 
 # Usage
 
-## Modern Vue 3 Features
+## Composables
 
-This version of `vue-zscroller` has been completely rewritten with modern Vue 3 features and optimizations:
-
-### Key Improvements
-
-- **Modern Vue 3 Composition API**: All components use `<script setup lang="ts">` with full TypeScript support
-- **@vueuse/core Integration**: Leverages battle-tested utilities for better performance and reliability
-- **useTemplateRef**: Enhanced type safety for template references
-- **Advanced Slot Ref Management**: Automatic memory cleanup with WeakMap support
-- **Performance Optimizations**: RAF scheduling, scroll debouncing, and idle callback support
-- **Enhanced SSR Compatibility**: Comprehensive server-side rendering support with @vueuse/core patterns
-- **Better TypeScript Support**: Comprehensive type definitions and improved IDE experience
-
-### Modern Composables
-
-The library exports enhanced composables for advanced use cases:
+The library exports composables for advanced use cases:
 
 ```typescript
 import {
@@ -124,9 +108,9 @@ const perf = useVirtualScrollPerformance({
 const { useSSRSafeStorage, useSSRSafeViewport } = useSSRSafeEnhanced()
 ```
 
-### Performance Monitoring
+### Performance monitoring
 
-Performance monitoring is available via the `useVirtualScrollPerformance` composable:
+You can track scroll performance with `useVirtualScrollPerformance`:
 
 ```typescript
 import { useVirtualScrollPerformance } from 'vue-zscroller'
@@ -586,36 +570,25 @@ setup(getCurrentInstance()?.proxy)
 
 ---
 
-## Migration Guide
+## Migrating from vue-virtual-scroller
 
-### From vue-virtual-scroller v2.0.0-beta.8 to vue-zscroller v1.0.0
-
-This version includes significant improvements and modernizations. Here's what you need to know:
-
-#### Breaking Changes
+### Breaking changes
 
 1. **Package name**: Import from `vue-zscroller` instead of `vue-virtual-scroller`
-2. **TypeScript is now first-class**: All components are written in TypeScript with full type definitions
-3. **@vueuse/core dependency**: The library now depends on @vueuse/core for enhanced functionality
-4. **IdState mixin removed**: Use the `useIdState` composable instead (see [useIdState](#useidstate))
-5. **`update` event signature changed**: The event now emits a single `UpdateEvent` object instead of 4 positional arguments
+2. **@vueuse/core** is now a peer dependency
+3. **IdState mixin removed**: Use the `useIdState` composable instead (see [useIdState](#useidstate))
+4. **`update` event signature changed**: Emits a single `UpdateEvent` object instead of 4 positional arguments
 
-#### Non-Breaking Changes
+### What stays the same
 
-1. **Same component API**: All existing props and events remain unchanged
-2. **Enhanced performance**: Better scroll handling and memory management
-3. **Improved SSR**: Better server-side rendering compatibility
-4. **Performance monitoring**: New composable for monitoring performance metrics
+All component props, events, and slots are the same. Drop-in replacement aside from the import path and the two breaking changes above.
 
-#### New Features
+### New stuff
 
-1. **useTemplateRef integration**: Better type safety for template references
-2. **Advanced slot management**: Automatic memory cleanup with WeakMap support
-3. **Performance optimizations**: RAF scheduling and idle callback support
-4. **Enhanced SSR utilities**: Comprehensive server-side rendering support
-5. **Skeleton loading**: `empty-item` slot for showing placeholders for null/undefined items
-6. **New props**: `disableTransform`, `skipHover`, `startAtBottom`, `initialScrollPercent`
-7. **New methods**: `scrollToPercent(percent)`, `reset()`
+- `empty-item` slot for skeleton/loading placeholders
+- New props: `disableTransform`, `skipHover`, `startAtBottom`, `initialScrollPercent`
+- New methods: `scrollToPercent(percent)`, `reset()`
+- `useVirtualScrollPerformance` composable for scroll metrics
 
 #### Code Examples
 
@@ -678,8 +651,8 @@ const scrollerRef = ref<InstanceType<typeof RecycleScroller>>()
 
 ## Links
 
-- **Demo**: [zachhandley.github.io/zvue-virtual-scroller](https://zachhandley.github.io/zvue-virtual-scroller/)
-- **GitHub**: [github.com/ZachHandley/zvue-virtual-scroller](https://github.com/ZachHandley/zvue-virtual-scroller)
+- **Demo**: [zachhandley.github.io/vue-zscroller](https://zachhandley.github.io/vue-zscroller/)
+- **GitHub**: [github.com/ZachHandley/vue-zscroller](https://github.com/ZachHandley/vue-zscroller)
 - **npm**: [npmjs.com/package/vue-zscroller](https://www.npmjs.com/package/vue-zscroller)
 - **Original project**: [github.com/Akryum/vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller)
 
