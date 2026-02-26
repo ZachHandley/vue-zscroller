@@ -50,8 +50,8 @@
           }"
       >
         <template #default="{ item, index, active }">
-          <template v-if="shouldShowSkeleton(view)">
-            <slot name="skeleton" :item="item" :index="index">
+          <template v-if="isViewLoading(view) && $slots['skeleton']">
+            <slot name="skeleton" :item="item" :index="index" :loading="true">
               <div class="vue-recycle-scroller__skeleton-row">
                 <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-circle" />
                 <div style="flex: 1;">
@@ -67,6 +67,7 @@
               :item="item"
               :index="index"
               :active="active"
+              :loading="isViewLoading(view)"
             />
             <slot
               v-else
@@ -154,6 +155,7 @@ const {
   stickToBottom = false,
   stickToBottomThreshold = 0.05,
   skeletonWhileScrolling = false,
+  itemLoadingField = 'loading',
   filter,
 } = defineProps<ScrollerProps>()
 
@@ -161,11 +163,11 @@ const emit = defineEmits<ScrollerEmits>()
 
 defineSlots<{
   before: () => any
-  default: (props: { item: VirtualScrollerItem | null | undefined; index: number; active: boolean }) => any
+  default: (props: { item: VirtualScrollerItem | null | undefined; index: number; active: boolean; loading: boolean }) => any
   'empty-item': (props: { index: number }) => any
   empty: () => any
   after: () => any
-  skeleton: (props: { item: VirtualScrollerItem | null | undefined; index: number }) => any
+  skeleton: (props: { item: VirtualScrollerItem | null | undefined; index: number; loading: boolean }) => any
 }>()
 
 const scrollElement = useTemplateRef<HTMLElement>('scrollElement')
@@ -183,6 +185,12 @@ const shouldShowSkeleton = (view: InternalView): boolean => {
   if (!skeletonWhileScrolling) return false
   if (!ready.value) return true
   return view.nr.fresh
+}
+
+const isViewLoading = (view: InternalView): boolean => {
+  if (shouldShowSkeleton(view)) return true
+  if (!itemLoadingField) return false
+  return Boolean(view.item?.[itemLoadingField])
 }
 
 watch(isScrolling, (newVal, oldVal) => {

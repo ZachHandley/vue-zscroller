@@ -17,6 +17,7 @@
     :disable-transform="disableTransform"
     :skip-hover="skipHover"
     :size-field="sizeField"
+    :item-loading-field="itemLoadingField"
     :start-at-bottom="startAtBottom"
     :initial-scroll-percent="initialScrollPercent"
     :stick-to-bottom="stickToBottom"
@@ -30,13 +31,14 @@
     @scroll-start="handleScrollStart"
     @scroll-end="handleScrollEnd"
   >
-    <template #default="{ item: itemWithSize, index, active }">
+    <template #default="{ item: itemWithSize, index, active, loading }">
       <slot
         v-if="itemWithSize && itemWithSize['item']"
         v-bind="{
           item: itemWithSize['item'],
           index,
           active,
+          loading,
           itemWithSize
         }"
       />
@@ -47,6 +49,7 @@
           item: itemWithSize?.['item'],
           index,
           active,
+          loading,
           itemWithSize
         }"
       >
@@ -102,6 +105,7 @@ const {
   disableTransform = false,
   skipHover = false,
   sizeField = 'size',
+  itemLoadingField = 'loading',
   startAtBottom = false,
   initialScrollPercent = null,
   stickToBottom = false,
@@ -113,8 +117,8 @@ const emit = defineEmits<DynamicScrollerEmits>()
 
 defineSlots<{
   before: () => any
-  default: (props: { item: VirtualScrollerItem | null | undefined; index: number; active: boolean; itemWithSize: any }) => any
-  'empty-item': (props: { index: number }) => any
+  default: (props: { item: VirtualScrollerItem | null | undefined; index: number; active: boolean; loading: boolean; itemWithSize: any }) => any
+  'empty-item': (props: { item: VirtualScrollerItem | null | undefined; index: number; active: boolean; loading: boolean; itemWithSize: any }) => any
   skeleton: (props: { item: VirtualScrollerItem | null | undefined; index: number }) => any
   empty: () => any
   after: () => any

@@ -3,6 +3,7 @@
     ref="containerRef"
     class="vue-grid-scroller"
     :class="[`direction-${direction}`]"
+    :style="containerStyle"
   >
     <slot v-if="!isMeasured" name="loading" />
     <RecycleScroller
@@ -29,6 +30,8 @@
       :skip-hover="skipHover"
       :start-at-bottom="startAtBottom"
       :initial-scroll-percent="initialScrollPercent"
+      :skeleton-while-scrolling="skeletonWhileScrolling"
+      :item-loading-field="itemLoadingField"
       v-bind="$attrs"
       @resize="handleResize"
       @visible="handleVisible"
@@ -37,11 +40,12 @@
       @scroll-start="handleScrollStart"
       @scroll-end="handleScrollEnd"
     >
-      <template #default="{ item, index, active }">
+      <template #default="{ item, index, active, loading }">
         <slot
           :item="item"
           :index="index"
           :active="active"
+          :loading="loading"
           :column="index % computedColumns"
           :row="Math.floor(index / computedColumns)"
           :cell-width="cellWidth"
@@ -72,6 +76,7 @@ const {
   rowGap = 0,
   columnGap = 0,
   gap = 0,
+  padding = 0,
   direction = 'vertical',
   pageMode = false,
   prerender = 0,
@@ -86,6 +91,8 @@ const {
   skipHover = false,
   startAtBottom = false,
   initialScrollPercent = null,
+  skeletonWhileScrolling = false,
+  itemLoadingField = 'loading',
 } = defineProps<GridScrollerProps>()
 
 const emit = defineEmits<GridScrollerEmits>()
@@ -104,6 +111,14 @@ const scrollerRef = useTemplateRef<InstanceType<typeof RecycleScroller>>('scroll
 // Resolve gaps: specific overrides shorthand
 const resolvedRowGap = computed(() => rowGap || gap)
 const resolvedColumnGap = computed(() => columnGap || gap)
+
+// Container padding style — applied to the outer div so that:
+// 1. ResizeObserver.contentRect automatically excludes padding from width measurements
+// 2. The absolutely-positioned RecycleScroller fills only the content area (inside padding)
+const containerStyle = computed(() => {
+  if (!padding) return undefined
+  return { padding: typeof padding === 'number' ? `${padding}px` : padding }
+})
 
 const {
   isMeasured,

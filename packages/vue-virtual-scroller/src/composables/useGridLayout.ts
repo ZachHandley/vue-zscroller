@@ -131,7 +131,7 @@ export function useGridLayout(options: UseGridLayoutOptions): UseGridLayoutRetur
         return itemWidth.value
       // available = cols * cellWidth + (cols - 1) * gap
       // cellWidth = (available - (cols - 1) * gap) / cols
-      return Math.floor((available - (cols - 1) * columnGap.value) / cols)
+      return (available - (cols - 1) * columnGap.value) / cols
     }
     else {
       // Main axis in horizontal mode: use requested size
@@ -152,7 +152,7 @@ export function useGridLayout(options: UseGridLayoutOptions): UseGridLayoutRetur
       const available = containerHeight.value
       if (available <= 0 || cols <= 0)
         return itemHeight.value
-      return Math.floor((available - (cols - 1) * rowGap.value) / cols)
+      return (available - (cols - 1) * rowGap.value) / cols
     }
   })
 
