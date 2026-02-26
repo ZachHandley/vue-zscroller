@@ -152,7 +152,7 @@ const {
   startAtBottom = false,
   initialScrollPercent = null,
   stickToBottom = false,
-  stickToBottomThreshold = 50,
+  stickToBottomThreshold = 0.05,
   skeletonWhileScrolling = false,
   filter,
 } = defineProps<ScrollerProps>()
@@ -216,6 +216,39 @@ let lastUpdateScrollPosition = 0
 let listenerTarget: EventTarget | null = null
 let resizeObserver: ResizeObserver | null = null
 let fallbackResizeHandler: (() => void) | null = null
+
+// When true, the scroller is programmatically scrolling to bottom —
+// prevents handleScroll from setting isAtBottom = false during the scroll.
+let _stickyScrollPending = false
+
+/** Parse threshold value into pixels. Accepts:
+ *  - number 0-1: percentage of container height (0.05 = 5%)
+ *  - number > 1: fixed pixels
+ *  - "50px": fixed pixels
+ *  - "5vh": percentage of viewport height
+ *  - "5%": percentage of container height
+ */
+const resolveThreshold = (el: HTMLElement): number => {
+  const value = stickToBottomThreshold
+  const containerHeight = direction === 'vertical' ? el.clientHeight : el.clientWidth
+
+  if (typeof value === 'number') {
+    // Numbers 0-1 are percentages of container, > 1 are pixels
+    return value <= 1 ? containerHeight * value : value
+  }
+
+  const str = String(value).trim()
+  const num = parseFloat(str)
+  if (isNaN(num)) return containerHeight * 0.05 // fallback
+
+  if (str.endsWith('px')) return num
+  if (str.endsWith('vh')) return (num / 100) * window.innerHeight
+  if (str.endsWith('vw')) return (num / 100) * window.innerWidth
+  if (str.endsWith('%')) return (num / 100) * containerHeight
+
+  // Plain number in string form — same logic as number type
+  return num <= 1 ? containerHeight * num : num
+}
 
 // Track currently visible item keys for visible/hidden events
 const previousVisibleKeys = new Map<string | number, { item: VirtualScrollerItem; index: number }>()
@@ -853,10 +886,15 @@ const handleScroll = () => {
   if (stickToBottom) {
     const el = scrollElement.value
     if (el) {
-      if (direction === 'vertical') {
-        isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - stickToBottomThreshold
-      } else {
-        isAtBottom.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - stickToBottomThreshold
+      // Don't re-evaluate during programmatic scroll-to-bottom — it would
+      // see a stale scrollTop and incorrectly mark isAtBottom as false.
+      if (!_stickyScrollPending) {
+        const thresholdPx = resolveThreshold(el)
+        if (direction === 'vertical') {
+          isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - thresholdPx
+        } else {
+          isAtBottom.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - thresholdPx
+        }
       }
     }
   }
@@ -954,6 +992,12 @@ const scrollToBottom = () => {
   const el = scrollElement.value
   if (!el) return
 
+  // Mark that we're programmatically scrolling so handleScroll doesn't
+  // set isAtBottom = false from a stale mid-scroll position.
+  _stickyScrollPending = true
+  // Keep sticky state so rapid successive appends keep auto-scrolling.
+  isAtBottom.value = true
+
   const applyScroll = () => {
     if (direction === 'vertical') {
       el.scrollTop = el.scrollHeight - el.clientHeight
@@ -963,22 +1007,27 @@ const scrollToBottom = () => {
   }
 
   let attempts = 0
-  const maxAttempts = 3
+  const maxAttempts = 5
 
   const settle = () => {
     applyScroll()
     attempts++
     if (attempts < maxAttempts) {
-      nextTick(() => {
-        // Verify and adjust — covers DynamicScroller async size updates
+      // Use RAF for retries — catches DynamicScroller size updates that
+      // land after the microtask flush but before the next paint.
+      requestAnimationFrame(() => {
         const isVertical = direction === 'vertical'
         const atEnd = isVertical
           ? el.scrollTop + el.clientHeight >= el.scrollHeight - 1
           : el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
         if (!atEnd) {
           settle()
+        } else {
+          _stickyScrollPending = false
         }
       })
+    } else {
+      _stickyScrollPending = false
     }
   }
 
@@ -1108,7 +1157,12 @@ watch(() => itemsProp, (newItems) => {
 
   if (newLen === 0 || oldLen === 0) {
     // Full replace
-    nextTick(() => updateVisibleItems(true))
+    nextTick(() => {
+      updateVisibleItems(true)
+      if (stickToBottom && newLen > 0) {
+        nextTick(() => scrollToBottom())
+      }
+    })
     return
   }
 
@@ -1145,10 +1199,12 @@ watch(() => itemsProp, (newItems) => {
   if (newLen > oldLen) {
     if (oldFirstKey === previousFirstKey) {
       // Append detected — no recycle needed, just update
-      const shouldStick = stickToBottom && isAtBottom.value
       nextTick(() => {
         updateVisibleItems(false)
-        if (shouldStick) {
+        // Check isAtBottom at scroll-time, not watcher-time.
+        // During rapid streaming, the watcher-time value is stale because
+        // scrollToBottom() from the previous batch hasn't executed yet.
+        if (stickToBottom && isAtBottom.value) {
           nextTick(() => scrollToBottom())
         }
       })

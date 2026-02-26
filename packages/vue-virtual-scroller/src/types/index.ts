@@ -55,8 +55,16 @@ export interface ScrollerProps {
   initialScrollPercent?: number | null
   /** When enabled, automatically scrolls to bottom when new items are appended and the user is already at the bottom. */
   stickToBottom?: boolean
-  /** Pixel threshold from the bottom to consider the user "at the bottom". Default: 50 */
-  stickToBottomThreshold?: number
+  /**
+   * Distance from the bottom edge within which the user is considered "at the bottom".
+   * - number (0-1): percentage of the scroller's own height (e.g., 0.05 = 5%)
+   * - number (> 1): fixed pixels
+   * - string "50px": fixed pixels
+   * - string "5vh": percentage of viewport height
+   * - string "5%": percentage of scroller's own height
+   * Default: 0.05 (5% of scroller height)
+   */
+  stickToBottomThreshold?: number | string
   /** When enabled, shows lightweight skeleton placeholders during active scrolling instead of rendering full item content. */
   skeletonWhileScrolling?: boolean
   /** Optional filter function applied to items before rendering. Items for which the function returns false are excluded. */

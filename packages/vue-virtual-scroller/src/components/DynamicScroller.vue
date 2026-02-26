@@ -105,7 +105,7 @@ const {
   startAtBottom = false,
   initialScrollPercent = null,
   stickToBottom = false,
-  stickToBottomThreshold = 50,
+  stickToBottomThreshold = 0.05,
   skeletonWhileScrolling = false,
 } = defineProps<DynamicScrollerProps>()
 
