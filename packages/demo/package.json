@@ -2,7 +2,7 @@
   "name": "demo",
   "version": "1.0.0",
   "private": true,
-  "description": "Demos for zvue-virtual-scroller",
+  "description": "Demos for vue-zscroller",
   "author": "Guillaume Chau <guillaume.b.chau@gmail.com>",
   "scripts": {
     "dev": "vite dev --port 8080",
@@ -13,7 +13,7 @@
     "@faker-js/faker": "^7.6.0",
     "vue": "^3.5.22",
     "vue-router": "^4.5.1",
-    "zvue-virtual-scroller": "workspace:*"
+    "vue-zscroller": "workspace:*"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",

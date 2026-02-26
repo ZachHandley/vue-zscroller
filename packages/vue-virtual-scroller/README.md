@@ -1,6 +1,6 @@
-# zvue-virtual-scroller
+# vue-zscroller
 
-[![npm](https://img.shields.io/npm/v/zvue-virtual-scroller.svg) ![npm](https://img.shields.io/npm/dm/zvue-virtual-scroller.svg)](https://www.npmjs.com/package/zvue-virtual-scroller)
+[![npm](https://img.shields.io/npm/v/vue-zscroller.svg) ![npm](https://img.shields.io/npm/dm/vue-zscroller.svg)](https://www.npmjs.com/package/vue-zscroller)
 [![vue3](https://img.shields.io/badge/vue-3.5+-brightgreen.svg)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
 
@@ -10,7 +10,7 @@ The original `vue-virtual-scroller` was created by [Guillaume Chau (Akryum)](htt
 
 **Maintainer**: Zach Handley (zachhandley@gmail.com)
 
-**[Live Demo](https://zachhandley.github.io/zvue-virtual-scroller/)** | **[GitHub](https://github.com/ZachHandley/zvue-virtual-scroller)** | **[npm](https://www.npmjs.com/package/zvue-virtual-scroller)**
+**[Live Demo](https://zachhandley.github.io/zvue-virtual-scroller/)** | **[GitHub](https://github.com/ZachHandley/zvue-virtual-scroller)** | **[npm](https://www.npmjs.com/package/vue-zscroller)**
 
 ---
 
@@ -31,15 +31,15 @@ The original `vue-virtual-scroller` was created by [Guillaume Chau (Akryum)](htt
 ## Installation
 
 ```bash
-pnpm add zvue-virtual-scroller
+pnpm add vue-zscroller
 ```
 
 ```bash
-npm install zvue-virtual-scroller
+npm install vue-zscroller
 ```
 
 ```bash
-yarn add zvue-virtual-scroller
+yarn add vue-zscroller
 ```
 
 ## Default import
@@ -47,7 +47,7 @@ yarn add zvue-virtual-scroller
 Install all the components:
 
 ```javascript
-import VueVirtualScroller from 'zvue-virtual-scroller'
+import VueVirtualScroller from 'vue-zscroller'
 
 app.use(VueVirtualScroller)
 ```
@@ -55,7 +55,7 @@ app.use(VueVirtualScroller)
 Use specific components:
 
 ```javascript
-import { RecycleScroller } from 'zvue-virtual-scroller'
+import { RecycleScroller } from 'vue-zscroller'
 
 app.component('RecycleScroller', RecycleScroller)
 ```
@@ -64,7 +64,7 @@ app.component('RecycleScroller', RecycleScroller)
 
 ```html
 <script src="vue.js"></script>
-<script src="zvue-virtual-scroller/dist/zvue-virtual-scroller.min.js"></script>
+<script src="vue-zscroller/dist/vue-zscroller.min.js"></script>
 ```
 
 Install the component:
@@ -83,7 +83,7 @@ app.component('RecycleScroller', VueVirtualScroller.RecycleScroller)
 
 ## Modern Vue 3 Features
 
-This version of `zvue-virtual-scroller` has been completely rewritten with modern Vue 3 features and optimizations:
+This version of `vue-zscroller` has been completely rewritten with modern Vue 3 features and optimizations:
 
 ### Key Improvements
 
@@ -105,7 +105,7 @@ import {
   useSSRSafeEnhanced,
   useVirtualScrollCore,
   useVirtualScrollPerformance
-} from 'zvue-virtual-scroller'
+} from 'vue-zscroller'
 
 // Advanced slot management with automatic cleanup
 const slotManager = useSlotRefManager({
@@ -129,7 +129,7 @@ const { useSSRSafeStorage, useSSRSafeViewport } = useSSRSafeEnhanced()
 Performance monitoring is available via the `useVirtualScrollPerformance` composable:
 
 ```typescript
-import { useVirtualScrollPerformance } from 'zvue-virtual-scroller'
+import { useVirtualScrollPerformance } from 'vue-zscroller'
 
 const perf = useVirtualScrollPerformance({
   enableScrollDebounce: true,
@@ -148,7 +148,7 @@ console.log(perf.scrollDirection.value)
 console.log(perf.scrollVelocity.value)
 ```
 
-There are several components provided by `zvue-virtual-scroller`:
+There are several components provided by `vue-zscroller`:
 
 [RecycleScroller](#recyclescroller) is a component that only renders the visible items in your list. It also re-uses components and dom elements to be as efficient and performant as possible.
 
@@ -554,7 +554,7 @@ In this example, we use the `id` of the `item` to have a "scoped" state per item
 
 <script setup lang="ts">
 import { getCurrentInstance } from 'vue'
-import { useIdState } from 'zvue-virtual-scroller'
+import { useIdState } from 'vue-zscroller'
 
 interface Props {
   item: { id: number; question: string }
@@ -588,13 +588,13 @@ setup(getCurrentInstance()?.proxy)
 
 ## Migration Guide
 
-### From vue-virtual-scroller v2.0.0-beta.8 to zvue-virtual-scroller v1.0.0
+### From vue-virtual-scroller v2.0.0-beta.8 to vue-zscroller v1.0.0
 
 This version includes significant improvements and modernizations. Here's what you need to know:
 
 #### Breaking Changes
 
-1. **Package name**: Import from `zvue-virtual-scroller` instead of `vue-virtual-scroller`
+1. **Package name**: Import from `vue-zscroller` instead of `vue-virtual-scroller`
 2. **TypeScript is now first-class**: All components are written in TypeScript with full type definitions
 3. **@vueuse/core dependency**: The library now depends on @vueuse/core for enhanced functionality
 4. **IdState mixin removed**: Use the `useIdState` composable instead (see [useIdState](#useidstate))
@@ -645,7 +645,7 @@ export default {
 </script>
 ```
 
-**After (zvue-virtual-scroller with TypeScript):**
+**After (vue-zscroller with TypeScript):**
 ```vue
 <template>
   <RecycleScroller
@@ -662,7 +662,7 @@ export default {
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { RecycleScroller } from 'zvue-virtual-scroller'
+import { RecycleScroller } from 'vue-zscroller'
 
 interface Item {
   id: string
@@ -680,7 +680,7 @@ const scrollerRef = ref<InstanceType<typeof RecycleScroller>>()
 
 - **Demo**: [zachhandley.github.io/zvue-virtual-scroller](https://zachhandley.github.io/zvue-virtual-scroller/)
 - **GitHub**: [github.com/ZachHandley/zvue-virtual-scroller](https://github.com/ZachHandley/zvue-virtual-scroller)
-- **npm**: [npmjs.com/package/zvue-virtual-scroller](https://www.npmjs.com/package/zvue-virtual-scroller)
+- **npm**: [npmjs.com/package/vue-zscroller](https://www.npmjs.com/package/vue-zscroller)
 - **Original project**: [github.com/Akryum/vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller)
 
 ## License

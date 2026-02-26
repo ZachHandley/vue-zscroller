@@ -1,7 +1,7 @@
 <template>
   <nav class="menu">
     <span class="package">
-      <span class="package-name">zvue-virtual-scroller</span>
+      <span class="package-name">vue-zscroller</span>
     </span>
 
     <router-link

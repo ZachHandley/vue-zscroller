@@ -1,5 +1,5 @@
 {
-  "name": "zvue-virtual-scroller",
+  "name": "vue-zscroller",
   "type": "module",
   "version": "1.0.0",
   "description": "A modern fork of vue-virtual-scroller with TypeScript and @vueuse/core integration",
@@ -29,13 +29,13 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/zvue-virtual-scroller.esm.mjs",
-      "require": "./dist/zvue-virtual-scroller.umd.js"
+      "import": "./dist/vue-zscroller.esm.mjs",
+      "require": "./dist/vue-zscroller.umd.js"
     }
   },
-  "main": "dist/zvue-virtual-scroller.umd.js",
-  "module": "dist/zvue-virtual-scroller.esm.mjs",
-  "unpkg": "dist/zvue-virtual-scroller.min.js",
+  "main": "dist/vue-zscroller.umd.js",
+  "module": "dist/vue-zscroller.esm.mjs",
+  "unpkg": "dist/vue-zscroller.min.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist"

@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { getData } from '../data'
 import type { DataItem } from '../data'
-import { GridScroller } from 'zvue-virtual-scroller'
+import { GridScroller } from 'vue-zscroller'
 
 const list = ref<DataItem[]>([])
 const itemWidth = ref(120)

@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      'zvue-virtual-scroller': resolve(__dirname, '../vue-virtual-scroller/src/index.ts'),
+      'vue-zscroller': resolve(__dirname, '../vue-virtual-scroller/src/index.ts'),
     },
   },
 })

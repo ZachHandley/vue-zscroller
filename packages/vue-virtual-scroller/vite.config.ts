@@ -17,7 +17,7 @@ const require = createRequire(import.meta.url)
  * - Works across ES, UMD, and IIFE output formats
  */
 function cssInjectPlugin(): Plugin {
-  const STYLE_ID = 'zvue-virtual-scroller-styles'
+  const STYLE_ID = 'vue-zscroller-styles'
 
   return {
     name: 'zvue-css-inject',
@@ -90,17 +90,17 @@ const config = defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'ZachVueVirtualScroller',
+      name: 'VueZScroller',
       fileName: (format) => {
         switch (format) {
           case 'es':
-            return 'zvue-virtual-scroller.esm.mjs'
+            return 'vue-zscroller.esm.mjs'
           case 'umd':
-            return 'zvue-virtual-scroller.umd.js'
+            return 'vue-zscroller.umd.js'
           case 'iife':
-            return 'zvue-virtual-scroller.min.js'
+            return 'vue-zscroller.min.js'
           default:
-            return 'zvue-virtual-scroller.js'
+            return 'vue-zscroller.js'
         }
       },
       formats: ['es', 'umd', 'iife'],

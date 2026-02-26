@@ -529,7 +529,7 @@ const getItemSizeAt = (index: number): number => {
 const itemsLimitError = () => {
   setTimeout(() => {
     console.error(
-      '[zvue-virtual-scroller] Rendered items limit reached. Ensure scroller has a fixed size and overflow enabled.',
+      '[vue-zscroller] Rendered items limit reached. Ensure scroller has a fixed size and overflow enabled.',
       scrollElement.value
     )
   })

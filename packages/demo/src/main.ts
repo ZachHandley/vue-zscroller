@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 
-import VirtualScroller from 'zvue-virtual-scroller'
+import VirtualScroller from 'vue-zscroller'
 import App from './App.vue'
 
 import router from './router'

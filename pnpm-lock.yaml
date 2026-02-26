@@ -38,7 +38,7 @@ importers:
       vue-router:
         specifier: ^4.5.1
         version: 4.5.1(vue@3.5.22(typescript@5.9.3))
-      zvue-virtual-scroller:
+      vue-zscroller:
         specifier: workspace:*
         version: link:../vue-virtual-scroller
     devDependencies:

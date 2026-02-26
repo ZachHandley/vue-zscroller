@@ -1,6 +1,6 @@
-# zvue-virtual-scroller-demos
+# vue-zscroller-demos
 
-> Demos for zvue-virtual-scroller
+> Demos for vue-zscroller
 
 ## Build Setup
 

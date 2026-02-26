@@ -1,6 +1,6 @@
-# zvue-virtual-scroller
+# vue-zscroller
 
-[![npm](https://img.shields.io/npm/v/zvue-virtual-scroller.svg) ![npm](https://img.shields.io/npm/dm/zvue-virtual-scroller.svg)](https://www.npmjs.com/package/zvue-virtual-scroller)
+[![npm](https://img.shields.io/npm/v/vue-zscroller.svg) ![npm](https://img.shields.io/npm/dm/vue-zscroller.svg)](https://www.npmjs.com/package/vue-zscroller)
 [![vue3](https://img.shields.io/badge/vue-3.5+-brightgreen.svg)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
 
@@ -17,7 +17,7 @@ Full documentation, API reference, and usage examples are in the package README:
 ## Links
 
 - **Demo**: [zachhandley.github.io/zvue-virtual-scroller](https://zachhandley.github.io/zvue-virtual-scroller/)
-- **npm**: [npmjs.com/package/zvue-virtual-scroller](https://www.npmjs.com/package/zvue-virtual-scroller)
+- **npm**: [npmjs.com/package/vue-zscroller](https://www.npmjs.com/package/vue-zscroller)
 - **GitHub**: [github.com/ZachHandley/zvue-virtual-scroller](https://github.com/ZachHandley/zvue-virtual-scroller)
 - **Original project**: [github.com/Akryum/vue-virtual-scroller](https://github.com/Akryum/vue-virtual-scroller)
 
