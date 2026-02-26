@@ -112,11 +112,32 @@ watch(
   }
 )
 
-// Optional: watch sizeDependencies for content-driven size changes
-// Only active when watchData is true and sizeDependencies is provided.
+// Watch sizeDependencies for content-driven size changes.
+// This fires whenever any value in the sizeDependencies array changes,
+// triggering a re-measurement. Independent of watchData.
+// Uses JSON.stringify to compare values rather than array references,
+// preventing spurious firings when the parent re-renders with a new
+// inline array (e.g. :size-dependencies="[item.message]").
+watch(
+  () => {
+    const deps = sizeDependencies
+    if (!deps || deps.length === 0) return ''
+    return JSON.stringify(deps)
+  },
+  () => {
+    if (active && isClient.value) {
+      nextTick(() => {
+        updateSize()
+      })
+    }
+  }
+)
+
+// Optional: deep-watch the entire item object for size changes.
+// This is expensive and usually unnecessary if sizeDependencies is used.
 if (watchData) {
   watch(
-    () => sizeDependencies,
+    () => item,
     () => {
       if (active && isClient.value) {
         nextTick(() => {

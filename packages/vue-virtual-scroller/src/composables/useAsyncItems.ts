@@ -53,7 +53,7 @@ export function useAsyncItems(
   const getItemKeyInternal = (item: VirtualScrollerItem, index?: number): string | number => {
     if (!item)
       return 'undefined-item'
-    return item.id || item.key || `item-${index ?? keyCounter++}`
+    return item.id ?? item.key ?? `item-${index ?? keyCounter++}`
   }
 
   // Update internal items when source changes
@@ -131,7 +131,7 @@ export function useAsyncItems(
   const getItemKey = (item: VirtualScrollerItem | null | undefined, fallback: string | number = 'undefined-item'): string | number => {
     if (!item)
       return fallback
-    return item.id || item.key || fallback
+    return item.id ?? item.key ?? fallback
   }
 
   const getItemIndex = (item: VirtualScrollerItem | null | undefined, items: VirtualScrollerItem[]): number => {
@@ -231,7 +231,7 @@ export function useItemValidation() {
   const getItemKey = (item: VirtualScrollerItem | null | undefined, fallback: string | number = 'undefined-item'): string | number => {
     if (!item)
       return fallback
-    return item.id || item.key || fallback
+    return item.id ?? item.key ?? fallback
   }
 
   const getItemIndex = (item: VirtualScrollerItem | null | undefined, items: VirtualScrollerItem[]): number => {
