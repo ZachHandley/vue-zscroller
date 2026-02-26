@@ -47,7 +47,9 @@ jobs:
         run: npm install -g pnpm@10
 
       - name: Configure npm auth
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_ACCESS_TOKEN }}" >> ~/.npmrc
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_ACCESS_TOKEN }}" >> ~/.npmrc
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_ACCESS_TOKEN }}" >> "${{ github.workspace }}/packages/vue-virtual-scroller/.npmrc"
 
       - run: pnpm install --frozen-lockfile
 
