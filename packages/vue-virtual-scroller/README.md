@@ -140,6 +140,8 @@ There are several components provided by `vue-zscroller`:
 
 [DynamicScrollerItem](#dynamicscrolleritem) must wrap each item in a DynamicScroller to handle size computations.
 
+[GridScroller](#gridscroller) is a responsive grid layout that wraps RecycleScroller. You give it `itemWidth` and `itemHeight` and it figures out how many columns fit in the container, recalculating on resize.
+
 [useIdState](#useidstate) is a composable that eases local state management in reused components inside a RecycleScroller.
 
 ## RecycleScroller
@@ -254,6 +256,10 @@ When the user scrolls inside RecycleScroller, the views are mostly just moved ar
 - `skipHover` (default: `false`): disable the hover class management on item views. Use this to improve performance when hover effects are not needed.
 - `startAtBottom` (default: `false`): start the scroller scrolled to the bottom. Useful for chat-like interfaces.
 - `initialScrollPercent` (default: `null`): set an initial scroll position as a percentage (0 to 1). For example, `0.5` starts in the middle of the list.
+- `stickToBottom` (default: `false`): automatically scroll to the bottom when new items are appended and the user is already at the bottom. Ideal for chat UIs.
+- `stickToBottomThreshold` (default: `50`): how many pixels from the bottom the user can be and still be considered "at the bottom" for `stickToBottom`.
+- `skeletonWhileScrolling` (default: `false`): render lightweight skeleton placeholders instead of full item content during active scrolling. Use the `skeleton` slot to customize the placeholder.
+- `filter`: optional function `(item) => boolean` to filter items before rendering. Items where the function returns `false` are excluded without recreating the scroller.
 
 ### Events
 
@@ -282,11 +288,12 @@ When the user scrolls inside RecycleScroller, the views are mostly just moved ar
 
 ### Methods (via template ref)
 
-- `scrollToItem(index)`: scroll to the item at the given index.
+- `scrollToItem(index, alignment?)`: scroll to the item at the given index. `alignment` can be `'start'`, `'center'`, `'end'`, or `'auto'` (default).
 - `scrollToPosition(position)`: scroll to the given pixel position.
 - `scrollToBottom()`: scroll to the bottom of the list.
 - `scrollToPercent(percent)`: scroll to a position expressed as a percentage (0 to 1). For example, `scrollToPercent(0.5)` scrolls to the middle.
 - `updateVisibleItems()`: force an update of the visible items.
+- `isAtBottom`: reactive ref -- `true` when the scroller is scrolled to the bottom (within `stickToBottomThreshold`).
 - `reset()`: reset the scroller state (clears indices, stops scrolling, and recycles all views).
 
 ### Default scoped slot props
@@ -304,6 +311,7 @@ When the user scrolls inside RecycleScroller, the views are mostly just moved ar
     <!-- Reused view pools here -->
     <slot name="empty"></slot>
     <slot name="empty-item" :index="index"></slot>
+    <slot name="skeleton" :item="item" :index="index"></slot>
   </wrapper>
   <slot name="after"></slot>
 </main>
@@ -324,6 +332,8 @@ When the user scrolls inside RecycleScroller, the views are mostly just moved ar
     </template>
   </RecycleScroller>
   ```
+
+- `skeleton`: lightweight placeholder shown in place of full item content during active scrolling when `skeletonWhileScrolling` is enabled. Receives `{ item, index }` slot props.
 
 Example:
 
@@ -492,6 +502,15 @@ Extends all the RecycleScroller scoped slot props.
 
 Extends all the RecycleScroller other slots.
 
+### Methods (via template ref)
+
+Extends all RecycleScroller methods, plus:
+
+- `updateItemSize(key, size)`: manually set the cached size for an item.
+- `getItemSize(key)`: get the cached size for an item.
+- `removeItemSize(key)`: remove the cached size for an item.
+- `resetSizes()`: clear all cached item sizes (also called by `reset()`).
+
 ## DynamicScrollerItem
 
 The component that should wrap all the items in a DynamicScroller.
@@ -504,10 +523,88 @@ The component that should wrap all the items in a DynamicScroller.
 - `watchData` (default: `false`): deeply watch `item` for changes to re-calculate the size (not recommended, can impact performance).
 - `tag` (default: `'div'`): element used to render the component.
 - `emitResize` (default: `false`): emit the `resize` event each time the size is recomputed (can impact performance).
+- `minItemSize`: minimum size hint for initial render before the actual size is measured.
+- `dataIndex`: the item's index in the list. Used internally for size tracking.
 
 ### Events
 
 - `resize`: emitted each time the size is recomputed, only if `emitResize` prop is `true`.
+
+## GridScroller
+
+A responsive grid that wraps RecycleScroller. Give it `itemWidth` and `itemHeight` and it calculates how many columns fit, recalculating automatically when the container resizes.
+
+### Basic usage
+
+```html
+<template>
+  <GridScroller
+    class="grid"
+    :items="items"
+    :item-width="200"
+    :item-height="200"
+    :gap="12"
+    key-field="id"
+    v-slot="{ item, column, row, cellWidth, cellHeight }"
+  >
+    <div class="card" :style="{ width: cellWidth + 'px', height: cellHeight + 'px' }">
+      {{ item.name }}
+    </div>
+  </GridScroller>
+</template>
+
+<style scoped>
+.grid {
+  height: 100%;
+}
+</style>
+```
+
+### Props
+
+- `items`: list of items to display.
+- `itemWidth` (required): base width of each item in pixels. Used to calculate column count.
+- `itemHeight` (required): base height of each item in pixels.
+- `columns` (default: `null`): force a specific column count. When set, `itemWidth` is only used for aspect ratio.
+- `minColumns` (default: `1`): minimum number of columns.
+- `maxColumns` (default: `Infinity`): maximum number of columns.
+- `gap` (default: `0`): shorthand for both `rowGap` and `columnGap`.
+- `rowGap` (default: `0`): gap between rows in pixels. Overrides `gap` for rows.
+- `columnGap` (default: `0`): gap between columns in pixels. Overrides `gap` for columns.
+- `keyField` (default: `'id'`): field used to identify items.
+- `filter`: optional function `(item) => boolean` to filter items before rendering.
+- Also accepts all RecycleScroller props: `direction`, `pageMode`, `prerender`, `buffer`, `emitUpdate`, `updateInterval`, `listClass`, `itemClass`, `listTag`, `itemTag`, `disableTransform`, `skipHover`, `startAtBottom`, `initialScrollPercent`.
+
+### Events
+
+- `columns-change`: emitted when the number of columns changes. Receives the new column count.
+- Also emits all RecycleScroller events: `resize`, `visible`, `hidden`, `update`, `scroll-start`, `scroll-end`.
+
+### Default scoped slot props
+
+- `item`: the item being rendered.
+- `index`: index in the items array.
+- `active`: whether the view is active.
+- `column`: column index (0-based) of this item in the grid.
+- `row`: row index (0-based) of this item in the grid.
+- `cellWidth`: computed width of each cell in pixels.
+- `cellHeight`: computed height of each cell in pixels.
+
+### Other slots
+
+- `before`: content before the grid.
+- `after`: content after the grid.
+- `empty`: content when items list is empty.
+- `loading`: content shown while the container is being measured (before the grid renders).
+
+### Methods (via template ref)
+
+- `scrollToItem(index)`: scroll to item at the given index.
+- `scrollToPosition(position)`: scroll to a pixel position.
+- `scrollToBottom()`: scroll to the bottom.
+- `scrollToPercent(percent)`: scroll to a percentage position (0 to 1).
+- `scrollToCell(row, col)`: scroll to a specific grid cell.
+- `updateVisibleItems()`: force update of visible items.
 
 ## useIdState
 
@@ -646,6 +743,24 @@ const items = ref<Item[]>([])
 const scrollerRef = ref<InstanceType<typeof RecycleScroller>>()
 </script>
 ```
+
+---
+
+## Demo Examples
+
+The [live demo](https://zachhandley.github.io/vue-zscroller/) includes several examples you can reference:
+
+- **RecycleScroller** -- basic virtual list with fixed-size items
+- **DynamicScroller** -- variable-height items that get measured on render
+- **Chat** -- chat UI using DynamicScroller with `stickToBottom`, streaming messages, and the `filter` prop for live search
+- **Test Chat** -- simpler chat example for testing `stickToBottom` behavior
+- **Horizontal** -- horizontal scrolling mode
+- **Grid** -- grid layout using RecycleScroller's `gridItems` prop
+- **GridScroller** -- responsive grid using the GridScroller component
+- **Skeleton** -- progressive loading with skeleton placeholders
+- **Simple List** -- minimal RecycleScroller setup
+
+Source code for all demos is in [`packages/demo/src/components/`](https://github.com/ZachHandley/vue-zscroller/tree/main/packages/demo/src/components).
 
 ---
 
