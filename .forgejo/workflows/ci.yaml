@@ -18,12 +18,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: corepack enable
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
+
+      - name: Setup pnpm
+        run: npm install -g pnpm@10
 
       - run: pnpm install
 
@@ -34,12 +34,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: corepack enable
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
+
+      - name: Setup pnpm
+        run: npm install -g pnpm@10
 
       - run: pnpm install
 
