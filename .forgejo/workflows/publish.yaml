@@ -46,10 +46,10 @@ jobs:
       - name: Setup pnpm
         run: npm install -g pnpm@10
 
-      - run: pnpm install
-
       - name: Configure npm auth
         run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_ACCESS_TOKEN }}" >> ~/.npmrc
+
+      - run: pnpm install --frozen-lockfile
 
       - run: pnpm lint
 

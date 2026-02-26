@@ -16,6 +16,7 @@
     :item-class="itemClass"
     :disable-transform="disableTransform"
     :skip-hover="skipHover"
+    :size-field="sizeField"
     :start-at-bottom="startAtBottom"
     :initial-scroll-percent="initialScrollPercent"
     :stick-to-bottom="stickToBottom"
