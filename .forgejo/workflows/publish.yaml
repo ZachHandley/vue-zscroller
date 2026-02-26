@@ -51,7 +51,8 @@ jobs:
 
       - name: Configure npm auth
         run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_ACCESS_TOKEN }}" >> ~/.npmrc
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_ACCESS_TOKEN }}" > ~/.npmrc
+          cat ~/.npmrc
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -71,8 +72,12 @@ jobs:
 
       - name: Publish to registry
         if: ${{ inputs.dry_run != true }}
+        working-directory: packages/vue-virtual-scroller
         run: |
-          cd packages/vue-virtual-scroller
+          echo "HOME=$HOME"
+          cat ~/.npmrc || echo "no ~/.npmrc"
+          cat .npmrc || echo "no local .npmrc"
+          npm whoami || echo "npm whoami failed"
           pnpm publish --no-git-checks --access public
 
       - name: Publish Dry Run
