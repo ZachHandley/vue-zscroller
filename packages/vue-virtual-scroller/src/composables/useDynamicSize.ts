@@ -93,6 +93,18 @@ export function useDynamicSize(
     currentSize.value = size
   }
 
+  const pauseObserver = () => {
+    if (element.value && sharedObserver) {
+      sharedObserver.unobserve(element.value)
+    }
+  }
+
+  const resumeObserver = () => {
+    if (element.value && sharedObserver) {
+      sharedObserver.observe(element.value, handleResizeEntry)
+    }
+  }
+
   return {
     itemSize: currentSize as Ref<number>,
     measureSize,
@@ -100,5 +112,7 @@ export function useDynamicSize(
     hasSizeChanged,
     setElement,
     setCurrentSize,
+    pauseObserver,
+    resumeObserver,
   }
 }

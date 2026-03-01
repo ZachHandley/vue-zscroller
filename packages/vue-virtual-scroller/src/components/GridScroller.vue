@@ -59,11 +59,12 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends Record<string, any>">
 import { computed, watch, useTemplateRef, toRef } from 'vue'
 import RecycleScroller from './RecycleScroller.vue'
 import { useGridLayout } from '../composables/useGridLayout'
-import type { GridScrollerProps, GridScrollerEmits, GridScrollerSlotProps, ResizeEvent, VisibilityEvent, UpdateEvent } from '../types'
+import type { GridScrollerProps, GridScrollerEmits, ResizeEvent, VisibilityEvent, UpdateEvent } from '../types'
+import type { RecycleScrollerInstance } from '../types/components'
 
 const {
   items,
@@ -93,12 +94,12 @@ const {
   initialScrollPercent = null,
   skeletonWhileScrolling = false,
   itemLoadingField = 'loading',
-} = defineProps<GridScrollerProps>()
+} = defineProps<GridScrollerProps<T>>()
 
 const emit = defineEmits<GridScrollerEmits>()
 
 defineSlots<{
-  default: (props: GridScrollerSlotProps) => any
+  default: (props: { item: T; index: number; active: boolean; loading: boolean; column: number; row: number; cellWidth: number; cellHeight: number }) => any
   before: () => any
   after: () => any
   empty: () => any
@@ -106,7 +107,8 @@ defineSlots<{
 }>()
 
 const containerRef = useTemplateRef<HTMLElement>('containerRef')
-const scrollerRef = useTemplateRef<InstanceType<typeof RecycleScroller>>('scrollerRef')
+// Use explicit instance interface since generic components break InstanceType<>
+const scrollerRef = useTemplateRef<RecycleScrollerInstance>('scrollerRef')
 
 // Resolve gaps: specific overrides shorthand
 const resolvedRowGap = computed(() => rowGap || gap)

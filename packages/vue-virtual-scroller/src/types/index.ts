@@ -41,10 +41,12 @@ export interface ScrollbarOptions {
   trackColor?: string
   /** CSS border-radius for the thumb. Default: '6px' */
   thumbBorderRadius?: string
+  /** Inset offset in px from the edge (right for vertical, bottom for horizontal). Default: 0 */
+  offset?: number
 }
 
-export interface ScrollerProps {
-  items: VirtualScrollerItem[] | null | undefined
+export interface ScrollerProps<T extends Record<string, any> = Record<string, any>> {
+  items: T[] | null | undefined
   keyField?: string
   direction?: 'vertical' | 'horizontal'
   itemSize?: number | null
@@ -87,14 +89,16 @@ export interface ScrollerProps {
   /** Field name on item objects that indicates loading state. When item[field] is truthy, `loading: true` is passed in slot props. Default: 'loading' */
   itemLoadingField?: string
   /** Optional filter function applied to items before rendering. Items for which the function returns false are excluded. */
-  filter?: (item: VirtualScrollerItem) => boolean
+  filter?: ((item: VirtualScrollerItem) => boolean) | undefined
   /** Enable the built-in custom scrollbar overlay. When true, the native scrollbar is hidden and a custom track/thumb is rendered. Default: false */
   customScrollbar?: boolean
   /** Options for the custom scrollbar appearance and behavior. Only used when customScrollbar is true. */
-  scrollbarOptions?: ScrollbarOptions
+  scrollbarOptions?: ScrollbarOptions | undefined
+  /** Hide all scrollbars (native and custom) while keeping the area scrollable via mousewheel/touch. Default: false */
+  hideScrollbar?: boolean
 }
 
-export interface DynamicScrollerProps extends ScrollerProps {
+export interface DynamicScrollerProps<T extends Record<string, any> = Record<string, any>> extends ScrollerProps<T> {
   minItemSize: number
 }
 
@@ -179,10 +183,15 @@ export interface DynamicScrollerSlotProps<T = any> extends VirtualScrollerSlotPr
   itemWithSize: (VirtualScrollerItem<T> & { size: number, isValid?: boolean }) | null | undefined
 }
 
+export interface DynamicScrollerItemSlotProps {
+  /** Trigger a remeasure of this DynamicScrollerItem. Waits for nextTick before measuring. */
+  triggerResize: () => Promise<void>
+}
+
 // GridScroller types
 
-export interface GridScrollerProps {
-  items: VirtualScrollerItem[] | null | undefined
+export interface GridScrollerProps<T extends Record<string, any> = Record<string, any>> {
+  items: T[] | null | undefined
   keyField?: string
   itemWidth: number
   itemHeight: number
@@ -213,11 +222,11 @@ export interface GridScrollerProps {
   /** Field name on item objects that indicates loading state. When item[field] is truthy, `loading: true` is passed in slot props. Default: 'loading' */
   itemLoadingField?: string
   /** Optional filter function applied to items before rendering. Items for which the function returns false are excluded. */
-  filter?: (item: VirtualScrollerItem) => boolean
+  filter?: ((item: VirtualScrollerItem) => boolean) | undefined
   /** Enable the built-in custom scrollbar overlay. When true, the native scrollbar is hidden and a custom track/thumb is rendered. Default: false */
   customScrollbar?: boolean
   /** Options for the custom scrollbar appearance and behavior. Only used when customScrollbar is true. */
-  scrollbarOptions?: ScrollbarOptions
+  scrollbarOptions?: ScrollbarOptions | undefined
 }
 
 export interface GridScrollerEmits {

@@ -1,8 +1,11 @@
 <template>
+  <div class="vue-recycle-scroller-wrapper">
   <div
     ref="scrollElement"
     class="vue-recycle-scroller"
     :class="{
+      'custom-scrollbar': _useCustomScrollbar,
+      'hide-scrollbar': hideScrollbar && !_useCustomScrollbar,
       ready,
       'page-mode': pageMode,
       [`direction-${direction}`]: true,
@@ -51,7 +54,7 @@
       >
         <template #default="{ item, index, active }">
           <template v-if="isViewLoading(view) && $slots['skeleton']">
-            <slot name="skeleton" :item="item" :index="index" :loading="true">
+            <slot name="skeleton" :item="_asT(item)" :index="index" :loading="true">
               <div class="vue-recycle-scroller__skeleton-row">
                 <div class="vue-recycle-scroller__skeleton vue-recycle-scroller__skeleton-circle" />
                 <div style="flex: 1;">
@@ -64,7 +67,7 @@
           <template v-else>
             <slot
               v-if="isItemValid(item)"
-              :item="item"
+              :item="_asT(item)"
               :index="index"
               :active="active"
               :loading="isViewLoading(view)"
@@ -96,12 +99,22 @@
     >
       <slot name="after" />
     </div>
+
+  </div>
+  <ScrollbarTrack
+    v-if="_useCustomScrollbar && scrollbar && scrollbarTrackProps"
+    v-bind="scrollbarTrackProps"
+    @thumb-pointerdown="scrollbar.onThumbPointerDown"
+    @track-pointerdown="scrollbar.onTrackPointerDown"
+  />
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends Record<string, any>">
 import { computed, nextTick, onMounted, onUnmounted, ref, shallowReactive, markRaw, useTemplateRef, watch, type CSSProperties } from 'vue'
 import ItemView from './ItemView.vue'
+import ScrollbarTrack from './ScrollbarTrack.vue'
+import { useCustomScrollbar } from '../composables/useCustomScrollbar'
 import config from '../config'
 import { getScrollParent } from '../scrollparent'
 import type { ScrollerEmits, ScrollerProps, VirtualScrollerItem, VisibilityEvent } from '../types'
@@ -157,18 +170,24 @@ const {
   skeletonWhileScrolling = false,
   itemLoadingField = 'loading',
   filter,
-} = defineProps<ScrollerProps>()
+  customScrollbar = false,
+  scrollbarOptions,
+  hideScrollbar = false,
+} = defineProps<ScrollerProps<T>>()
 
 const emit = defineEmits<ScrollerEmits>()
 
 defineSlots<{
   before: () => any
-  default: (props: { item: VirtualScrollerItem | null | undefined; index: number; active: boolean; loading: boolean }) => any
+  default: (props: { item: T; index: number; active: boolean; loading: boolean }) => any
   'empty-item': (props: { index: number }) => any
   empty: () => any
   after: () => any
-  skeleton: (props: { item: VirtualScrollerItem | null | undefined; index: number; loading: boolean }) => any
+  skeleton: (props: { item: T | null | undefined; index: number; loading: boolean }) => any
 }>()
+
+// Cast helper: bridge internal VirtualScrollerItem to generic T at slot boundary
+const _asT = (item: any): T => item
 
 const scrollElement = useTemplateRef<HTMLElement>('scrollElement')
 const beforeElement = useTemplateRef<HTMLElement>('beforeElement')
@@ -181,6 +200,44 @@ const totalSize = ref(0)
 const startIndex = ref(0)
 const endIndex = ref(0)
 const isScrolling = ref(false)
+
+// Custom scrollbar (disabled in page-mode — the scroll container is the parent/window, not this element)
+const _useCustomScrollbar = customScrollbar && !pageMode && !hideScrollbar
+const scrollbar = _useCustomScrollbar
+  ? useCustomScrollbar({
+      scrollElement,
+      totalSize,
+      direction,
+      onScrollTo: (position: number) => {
+        const el = scrollElement.value
+        if (!el) return
+        if (direction === 'vertical') {
+          el.scrollTop = position
+        } else {
+          el.scrollLeft = position
+        }
+      },
+      options: scrollbarOptions,
+    })
+  : null
+
+const scrollbarTrackProps = computed(() => {
+  if (!scrollbar) return null
+  return {
+    thumbSize: scrollbar.thumbSize.value,
+    thumbPosition: scrollbar.thumbPosition.value,
+    trackSize: scrollbar.trackSize.value,
+    isVisible: scrollbar.isVisible.value,
+    isDragging: scrollbar.isDragging.value,
+    direction,
+    width: scrollbarOptions?.width,
+    thumbColor: scrollbarOptions?.thumbColor,
+    trackColor: scrollbarOptions?.trackColor,
+    thumbBorderRadius: scrollbarOptions?.thumbBorderRadius,
+    offset: scrollbarOptions?.offset,
+  }
+})
+
 const shouldShowSkeleton = (view: InternalView): boolean => {
   if (!skeletonWhileScrolling) return false
   if (!ready.value) return true
@@ -760,8 +817,15 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
       }
 
       views.set(key, view)
-    } else if (view.item !== item) {
-      view.item = item
+    } else {
+      // Existing view with the same key — update the item reference when the
+      // wrapper object changed (e.g. DynamicScroller replaced it with a new
+      // size).  Always keep nr.index in sync so the continuous-path visibility
+      // check (which reads view.nr.index) uses the current position.
+      if (view.item !== item) {
+        view.item = item
+      }
+      view.nr.index = i
     }
 
     if (itemSize === null) {
@@ -851,6 +915,7 @@ const handleResize = () => {
       updateVisibleItems(false)
     })
   }
+  scrollbar?.onResize()
 }
 
 let nonContinuousRetries = 0
@@ -887,6 +952,7 @@ const scheduleScrollUpdate = () => {
 
 const handleScroll = () => {
   if (!ready.value) return
+  scrollbar?.onScroll()
 
   nonContinuousRetries = 0
 
@@ -1177,27 +1243,35 @@ watch(() => itemsProp, (newItems) => {
   // Same length + same keys = property updates only (e.g., DynamicScroller size changes)
   if (newLen === oldLen && newLen > 0) {
     if (oldFirstKey === previousFirstKey && oldLastKey === previousLastKey) {
-      // Check if any visible item sizes actually changed before triggering update.
-      // This prevents the DynamicScroller cascade: itemsWithSize creates new wrapper
-      // objects on every sizeVersion change, but if no actual sizes differ for
-      // visible items, we can skip the expensive updateVisibleItems call entirely.
-      let sizeChanged = false
-      const sField = sizeField
-      for (let i = startIndex.value; i < endIndex.value && i < newLen; i++) {
-        const item = newArr[i]
-        const key = simpleArray.value ? i : item?.[keyField]
-        const view = views.get(key)
-        if (view && view.item !== item) {
-          const oldSize = view.item?.[sField]
-          const newSize = item?.[sField]
-          if (oldSize !== newSize) {
-            sizeChanged = true
-            break
+      if (itemSize === null) {
+        // Variable-size mode: positions are cumulative — each item's position
+        // equals the sum of all preceding items' sizes.  A size change on ANY
+        // item (even outside the visible window) shifts every subsequent
+        // item's position.  The items watcher only fires when the array
+        // reference changed, which means at least one wrapper was replaced
+        // (i.e. at least one size actually changed).  Always recalculate.
+        nextTick(() => updateVisibleItems(false))
+      } else {
+        // Fixed-size mode: every item's position is independent of other
+        // items' sizes, so we only need to update if a visible item changed.
+        let sizeChanged = false
+        const sField = sizeField
+        for (let i = startIndex.value; i < endIndex.value && i < newLen; i++) {
+          const item = newArr[i]
+          const key = simpleArray.value ? i : item?.[keyField]
+          const view = views.get(key)
+          if (view && view.item !== item) {
+            const oldSize = view.item?.[sField]
+            const newSize = item?.[sField]
+            if (oldSize !== newSize) {
+              sizeChanged = true
+              break
+            }
           }
         }
-      }
-      if (sizeChanged) {
-        nextTick(() => updateVisibleItems(false))
+        if (sizeChanged) {
+          nextTick(() => updateVisibleItems(false))
+        }
       }
       return
     }
@@ -1291,6 +1365,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  scrollbar?.destroy()
   removeListeners()
   if (resizeObserver) {
     resizeObserver.disconnect()
@@ -1308,6 +1383,7 @@ onUnmounted(() => {
 })
 
 defineExpose({
+  scrollElement,
   scrollToItem,
   scrollToPosition,
   scrollToBottom,
@@ -1324,10 +1400,20 @@ defineExpose({
 </script>
 
 <style scoped>
+.vue-recycle-scroller-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
 .vue-recycle-scroller {
   position: relative;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .vue-recycle-scroller.direction-horizontal {
@@ -1473,5 +1559,21 @@ defineExpose({
   align-items: center;
   gap: 12px;
   padding: 12px;
+}
+
+/* Hide native scrollbar when custom scrollbar is enabled or hideScrollbar is set */
+.vue-recycle-scroller.custom-scrollbar,
+.vue-recycle-scroller.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+</style>
+
+<!-- Unscoped block needed because ::-webkit-scrollbar pseudo-element
+     doesn't work with Vue's scoped data attributes -->
+<style>
+.vue-recycle-scroller.custom-scrollbar::-webkit-scrollbar,
+.vue-recycle-scroller.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 </style>

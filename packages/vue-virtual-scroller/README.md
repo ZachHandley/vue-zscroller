@@ -22,6 +22,7 @@ Not a fork -- every component was rewritten from the ground up using `<script se
 - SSR-safe -- works with server-side rendering out of the box
 - CSS auto-injected, no separate import needed
 - Optional `filter` prop for filtering items without recreating the scroller
+- Built-in custom scrollbar with math-based thumb positioning (no jumpy native scrollbar)
 - Components: RecycleScroller, DynamicScroller, DynamicScrollerItem, GridScroller
 
 ---
@@ -85,6 +86,7 @@ The library exports composables for advanced use cases:
 
 ```typescript
 import {
+  useCustomScrollbar,
   useSlotRefManager,
   useSSRSafeEnhanced,
   useVirtualScrollCore,
@@ -260,6 +262,8 @@ When the user scrolls inside RecycleScroller, the views are mostly just moved ar
 - `stickToBottomThreshold` (default: `50`): how many pixels from the bottom the user can be and still be considered "at the bottom" for `stickToBottom`.
 - `skeletonWhileScrolling` (default: `false`): render lightweight skeleton placeholders instead of full item content during active scrolling. Use the `skeleton` slot to customize the placeholder.
 - `filter`: optional function `(item) => boolean` to filter items before rendering. Items where the function returns `false` are excluded without recreating the scroller.
+- `customScrollbar` (default: `false`): enable the built-in [custom scrollbar](#custom-scrollbar). Hides the native scrollbar and renders a custom track/thumb overlay. Automatically disabled in [page mode](#page-mode).
+- `scrollbarOptions`: options object to customize the custom scrollbar appearance and behavior. Only used when `customScrollbar` is `true`. See [Custom Scrollbar](#custom-scrollbar) for details.
 
 ### Events
 
@@ -427,6 +431,71 @@ The `prerender` props can be set as the number of items to render on the server 
 >
 ```
 
+### Custom Scrollbar
+
+Native browser scrollbars in virtual scrollers have a UX problem: the thumb jumps around as item sizes are measured and the total content height changes. The built-in custom scrollbar solves this by computing thumb position mathematically from the scroller's internal state rather than relying on the browser's `scrollHeight`.
+
+Enable it with the `customScrollbar` prop:
+
+```html
+<RecycleScroller
+  :items="items"
+  :item-size="50"
+  custom-scrollbar
+>
+  <template #default="{ item }">
+    <div>{{ item.name }}</div>
+  </template>
+</RecycleScroller>
+```
+
+Customize appearance with `scrollbarOptions`:
+
+```html
+<RecycleScroller
+  :items="items"
+  :item-size="50"
+  custom-scrollbar
+  :scrollbar-options="{
+    width: 14,
+    thumbColor: 'rgba(100, 100, 100, 0.6)',
+    trackColor: 'rgba(0, 0, 0, 0.05)',
+    thumbBorderRadius: '8px',
+    autoHideDelay: 2000,
+  }"
+>
+```
+
+#### How it works
+
+- The container keeps `overflow: auto` -- native scrolling (wheel, trackpad, touch, keyboard) still works
+- The native scrollbar is hidden with CSS (`scrollbar-width: none`)
+- A custom track/thumb overlay is rendered on top, positioned absolutely
+- Thumb size and position are computed from `totalSize`, `scrollTop`, and `clientHeight`
+- The thumb can be dragged or the track clicked to scroll
+- Auto-hides after inactivity (configurable)
+
+#### ScrollbarOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `width` | `number` | `12` | Track width in pixels |
+| `minThumbSize` | `number` | `30` | Minimum thumb height in pixels |
+| `autoHide` | `boolean` | `true` | Auto-hide scrollbar when not scrolling |
+| `autoHideDelay` | `number` | `1000` | Milliseconds before auto-hiding |
+| `thumbColor` | `string` | `'rgba(0, 0, 0, 0.4)'` | CSS color for the thumb |
+| `trackColor` | `string` | `'transparent'` | CSS color for the track |
+| `thumbBorderRadius` | `string` | `'6px'` | CSS border-radius for the thumb |
+
+#### Notes
+
+- Works with RecycleScroller, DynamicScroller, and GridScroller (they all wrap RecycleScroller)
+- Automatically disabled in [page mode](#page-mode) since the scroll container is the parent/window
+- Supports both vertical and horizontal scrolling
+- The `useCustomScrollbar` composable is also exported for advanced use cases
+
+---
+
 ## DynamicScroller
 
 This works just like the RecycleScroller, but it can render items with unknown sizes!
@@ -510,6 +579,7 @@ Extends all RecycleScroller methods, plus:
 - `getItemSize(key)`: get the cached size for an item.
 - `removeItemSize(key)`: remove the cached size for an item.
 - `resetSizes()`: clear all cached item sizes (also called by `reset()`).
+- `invalidateItem(key)`: imperatively remeasure a specific item by key. Waits for `nextTick` before measuring so DOM changes have time to settle.
 
 ## DynamicScrollerItem
 
@@ -529,6 +599,39 @@ The component that should wrap all the items in a DynamicScroller.
 ### Events
 
 - `resize`: emitted each time the size is recomputed, only if `emitResize` prop is `true`.
+
+### Scoped slot props
+
+DynamicScrollerItem exposes a scoped slot with a `triggerResize` function. Call it to imperatively remeasure the item (e.g. after an image loads or async content renders):
+
+```html
+<DynamicScrollerItem :item="item" :active="active" :data-index="index">
+  <template #default="{ triggerResize }">
+    <img :src="item.avatar" @load="triggerResize" />
+    <div>{{ item.message }}</div>
+  </template>
+</DynamicScrollerItem>
+```
+
+`triggerResize` waits for `nextTick` before measuring so DOM changes have time to settle.
+
+### useDynamicScrollerItem composable
+
+For deeply nested components inside a DynamicScrollerItem that need to trigger a remeasure without prop drilling, use the `useDynamicScrollerItem` composable:
+
+```vue
+<script setup lang="ts">
+import { useDynamicScrollerItem } from 'vue-zscroller'
+
+const { triggerResize } = useDynamicScrollerItem()
+
+function onContentReady() {
+  triggerResize()
+}
+</script>
+```
+
+Must be called within a component that is a descendant of DynamicScrollerItem. Falls back to a no-op with a warning if called outside one.
 
 ## GridScroller
 
@@ -683,7 +786,7 @@ All component props, events, and slots are the same. Drop-in replacement aside f
 ### New stuff
 
 - `empty-item` slot for skeleton/loading placeholders
-- New props: `disableTransform`, `skipHover`, `startAtBottom`, `initialScrollPercent`
+- New props: `disableTransform`, `skipHover`, `startAtBottom`, `initialScrollPercent`, `customScrollbar`, `scrollbarOptions`
 - New methods: `scrollToPercent(percent)`, `reset()`
 - `useVirtualScrollPerformance` composable for scroll metrics
 

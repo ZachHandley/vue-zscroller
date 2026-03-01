@@ -37,12 +37,13 @@ export interface UseAsyncItemsReturn {
  */
 export function useAsyncItems(
   itemsRef: Ref<VirtualScrollerItem[]>,
-  options: UseAsyncItemsOptions = {},
+  options: UseAsyncItemsOptions & { keyField?: string } = {},
 ): UseAsyncItemsReturn {
   const {
     debounceTime = 150,
     throttleTime = 16,
     enableAsync = true,
+    keyField = 'id',
   } = options
 
   const loadingStates = ref<Map<string | number, AsyncItemState>>(new Map())
@@ -53,7 +54,7 @@ export function useAsyncItems(
   const getItemKeyInternal = (item: VirtualScrollerItem, index?: number): string | number => {
     if (!item)
       return 'undefined-item'
-    return item.id ?? item.key ?? `item-${index ?? keyCounter++}`
+    return item[keyField] ?? item.id ?? item.key ?? `item-${index ?? keyCounter++}`
   }
 
   // Update internal items when source changes
@@ -131,7 +132,7 @@ export function useAsyncItems(
   const getItemKey = (item: VirtualScrollerItem | null | undefined, fallback: string | number = 'undefined-item'): string | number => {
     if (!item)
       return fallback
-    return item.id ?? item.key ?? fallback
+    return item[keyField] ?? item.id ?? item.key ?? fallback
   }
 
   const getItemIndex = (item: VirtualScrollerItem | null | undefined, items: VirtualScrollerItem[]): number => {
@@ -221,7 +222,7 @@ export function useAsyncItems(
 /**
  * Utility composable for basic item validation without async features
  */
-export function useItemValidation() {
+export function useItemValidation(keyField: string = 'id') {
   const isItemValid = (item: VirtualScrollerItem | null | undefined): boolean => {
     if (!item)
       return false
@@ -231,7 +232,7 @@ export function useItemValidation() {
   const getItemKey = (item: VirtualScrollerItem | null | undefined, fallback: string | number = 'undefined-item'): string | number => {
     if (!item)
       return fallback
-    return item.id ?? item.key ?? fallback
+    return item[keyField] ?? item.id ?? item.key ?? fallback
   }
 
   const getItemIndex = (item: VirtualScrollerItem | null | undefined, items: VirtualScrollerItem[]): number => {

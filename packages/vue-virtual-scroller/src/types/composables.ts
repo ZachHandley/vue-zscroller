@@ -27,6 +27,15 @@ export interface UseDynamicSizeReturn {
   hasSizeChanged: (oldSize: number, newSize: number) => boolean
   setElement: (el: HTMLElement | null) => void
   setCurrentSize: (size: number) => void
+  /** Stop observing the element via the shared ResizeObserver (for inactive items) */
+  pauseObserver: () => void
+  /** Resume observing the element via the shared ResizeObserver (for active items) */
+  resumeObserver: () => void
+}
+
+export interface UseDynamicScrollerItemReturn {
+  /** Trigger a remeasure of the enclosing DynamicScrollerItem. Waits for nextTick before measuring. */
+  triggerResize: () => Promise<void>
 }
 
 export interface UseCustomScrollbarOptions {
@@ -39,7 +48,7 @@ export interface UseCustomScrollbarOptions {
   /** Function to call when the scrollbar wants to set scroll position */
   onScrollTo: (position: number) => void
   /** Scrollbar appearance/behavior options */
-  options?: ScrollbarOptions
+  options?: ScrollbarOptions | undefined
 }
 
 export interface UseCustomScrollbarReturn {

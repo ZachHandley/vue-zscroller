@@ -1,13 +1,9 @@
 {
   "name": "vue-zscroller",
   "type": "module",
-  "version": "1.0.0",
+  "version": "0.0.0-dev",
   "description": "Virtual scrolling components for Vue 3.5+, rewritten in TypeScript",
   "author": {
-    "name": "Guillaume Chau",
-    "email": "guillaume.b.chau@gmail.com"
-  },
-  "maintainer": {
     "name": "Zach Handley",
     "email": "zachhandley@gmail.com"
   },
@@ -50,7 +46,8 @@
     "vue": "^3.4.0"
   },
   "dependencies": {
-    "@vueuse/core": "^10.11.1"
+    "@vueuse/core": "^10.11.1",
+    "vue-zscroller": "^0.2.3"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.6.2",
