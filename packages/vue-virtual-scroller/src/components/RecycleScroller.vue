@@ -899,8 +899,8 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
 }
 
 let resizeRafId = 0
-let lastContainerWidth = 0
-let lastContainerHeight = 0
+let lastContainerWidth = -1
+let lastContainerHeight = -1
 
 const handleResize = () => {
   const el = scrollElement.value
@@ -1357,6 +1357,15 @@ onMounted(() => {
     ready.value = true
     updateVisibleItems(true)
     handleResize()
+
+    // Double-RAF: ensures browser has completed at least one full layout+paint
+    // cycle before re-measuring. Fixes v-if transitions in flex containers where
+    // clientHeight is 0 at mount but resolves after the first paint.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        handleResize()
+      })
+    })
 
     if (initialScrollPercent !== null) {
       scrollToPercent(initialScrollPercent)
