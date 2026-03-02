@@ -170,6 +170,7 @@ const {
   skeletonWhileScrolling = false,
   itemLoadingField = 'loading',
   filter,
+  sortBy,
   customScrollbar = false,
   scrollbarOptions,
   hideScrollbar = false,
@@ -270,9 +271,35 @@ watch(isScrolling, (newVal, oldVal) => {
 
 const isAtBottom = ref(false)
 
+// Cache previous sorted key order to avoid unnecessary downstream reactivity
+let _prevSortedKeys: (string | number)[] = []
+let _prevSortedItems: VirtualScrollerItem[] = []
+
 const items = computed<VirtualScrollerItem[]>(() => {
   const raw = itemsProp || []
-  return filter ? raw.filter(filter) : raw
+  let result = filter ? raw.filter(filter) : raw
+
+  if (sortBy) {
+    result = [...result].sort(sortBy)
+
+    // Identity cache: if key order unchanged, return cached array reference
+    const kf = keyField
+    if (result.length === _prevSortedKeys.length) {
+      let same = true
+      for (let i = 0; i < result.length; i++) {
+        const key = typeof result[i] !== 'object' ? i : result[i]?.[kf]
+        if (key !== _prevSortedKeys[i]) { same = false; break }
+      }
+      if (same) return _prevSortedItems
+    }
+
+    _prevSortedKeys = result.map((item, i) =>
+      typeof item !== 'object' ? i : item?.[kf]
+    )
+    _prevSortedItems = result
+  }
+
+  return result
 })
 const simpleArray = computed(() => items.value.length > 0 && typeof items.value[0] !== 'object')
 
@@ -1225,8 +1252,7 @@ const handlePrepend = (prependCount: number) => {
   })
 }
 
-watch(() => itemsProp, (newItems) => {
-  const newArr = newItems || []
+watch(items, (newArr) => {
   const oldFirstKey = previousFirstKey
   const oldLastKey = previousLastKey
   const oldLen = previousItemsLength
@@ -1260,25 +1286,19 @@ watch(() => itemsProp, (newItems) => {
         // (i.e. at least one size actually changed).  Always recalculate.
         nextTick(() => updateVisibleItems(false))
       } else {
-        // Fixed-size mode: every item's position is independent of other
-        // items' sizes, so we only need to update if a visible item changed.
-        let sizeChanged = false
-        const sField = sizeField
+        // Fixed-size mode: check if visible items reordered or changed
+        let visibleChanged = false
         for (let i = startIndex.value; i < endIndex.value && i < newLen; i++) {
           const item = newArr[i]
           const key = simpleArray.value ? i : item?.[keyField]
           const view = views.get(key)
-          if (view && view.item !== item) {
-            const oldSize = view.item?.[sField]
-            const newSize = item?.[sField]
-            if (oldSize !== newSize) {
-              sizeChanged = true
-              break
-            }
+          if (!view || view.nr.index !== i || view.item !== item) {
+            visibleChanged = true
+            break
           }
         }
-        if (sizeChanged) {
-          nextTick(() => updateVisibleItems(false))
+        if (visibleChanged) {
+          nextTick(() => updateVisibleItems(true))
         }
       }
       return
@@ -1288,16 +1308,21 @@ watch(() => itemsProp, (newItems) => {
   // Detect append: old items still at same positions, new items at end
   if (newLen > oldLen) {
     if (oldFirstKey === previousFirstKey) {
-      // Append detected — no recycle needed, just update
-      nextTick(() => {
-        updateVisibleItems(false)
-        // Check isAtBottom at scroll-time, not watcher-time.
-        // During rapid streaming, the watcher-time value is stale because
-        // scrollToBottom() from the previous batch hasn't executed yet.
-        if (stickToBottom && isAtBottom.value) {
-          nextTick(() => scrollToBottom())
-        }
-      })
+      // Verify old items haven't shifted (could happen with sortBy)
+      const oldLastItem = newArr[oldLen - 1]
+      const oldLastItemKey = simpleArray.value ? (oldLen - 1) : oldLastItem?.[keyField]
+      if (oldLastItemKey === oldLastKey) {
+        // Pure append — old items at same positions
+        nextTick(() => {
+          updateVisibleItems(false)
+          if (stickToBottom && isAtBottom.value) {
+            nextTick(() => scrollToBottom())
+          }
+        })
+        return
+      }
+      // Items shifted — full rebuild
+      nextTick(() => updateVisibleItems(true))
       return
     }
 

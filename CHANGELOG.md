@@ -1,3 +1,18 @@
+# 0.2.7
+
+
+### Features
+
+* **RecycleScroller:** add `sortBy` prop for built-in item sorting with identity-cache optimization
+* **RecycleScroller:** add `sortBy` to `GridScrollerProps` type for consistency with `filter`
+
+### Bug Fixes
+
+* **RecycleScroller:** fix same-length reorder not detected in fixed-size mode — visible items with changed keys now trigger a full update
+* **RecycleScroller:** fix append-with-sort misidentified as pure append — verify old last key position before taking the fast path
+* **RecycleScroller:** items watcher now watches the post-filter/sort computed instead of raw `itemsProp`
+
+
 # 0.2.4
 
 

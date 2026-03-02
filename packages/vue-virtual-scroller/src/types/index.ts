@@ -92,6 +92,8 @@ export interface ScrollerProps<T extends Record<string, any> = Record<string, an
   itemLoadingField?: string
   /** Optional filter function applied to items before rendering. Items for which the function returns false are excluded. */
   filter?: ((item: VirtualScrollerItem) => boolean) | undefined
+  /** Optional comparator function for sorting items. When provided, items are sorted before rendering. */
+  sortBy?: ((a: VirtualScrollerItem, b: VirtualScrollerItem) => number) | undefined
   /** Enable the built-in custom scrollbar overlay. When true, the native scrollbar is hidden and a custom track/thumb is rendered. Default: false */
   customScrollbar?: boolean
   /** Options for the custom scrollbar appearance and behavior. Only used when customScrollbar is true. */
@@ -225,6 +227,8 @@ export interface GridScrollerProps<T extends Record<string, any> = Record<string
   itemLoadingField?: string
   /** Optional filter function applied to items before rendering. Items for which the function returns false are excluded. */
   filter?: ((item: VirtualScrollerItem) => boolean) | undefined
+  /** Optional comparator function for sorting items. When provided, items are sorted before rendering. */
+  sortBy?: ((a: VirtualScrollerItem, b: VirtualScrollerItem) => number) | undefined
   /** Enable the built-in custom scrollbar overlay. When true, the native scrollbar is hidden and a custom track/thumb is rendered. Default: false */
   customScrollbar?: boolean
   /** Options for the custom scrollbar appearance and behavior. Only used when customScrollbar is true. */
