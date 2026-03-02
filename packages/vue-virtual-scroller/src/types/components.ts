@@ -2,6 +2,7 @@ import type DynamicScrollerVue from '../components/DynamicScroller.vue'
 import type DynamicScrollerItemVue from '../components/DynamicScrollerItem.vue'
 import type GridScrollerVue from '../components/GridScroller.vue'
 import type RecycleScrollerVue from '../components/RecycleScroller.vue'
+import type { ScrollData } from './index'
 
 // ---------------------------------------------------------------------------
 // Component type aliases (kept for backwards compat; use `as any` when needed
@@ -27,6 +28,8 @@ export interface RecycleScrollerInstance {
   scrollToPercent: (percent: number) => void
   updateVisibleItems: (itemsChanged?: boolean, checkPositionDiff?: boolean) => void
   isAtBottom: boolean
+  /** Reactive scroll metrics — always updated on scroll, regardless of stickToBottom. */
+  scrollData: ScrollData
   reset: () => void
 }
 

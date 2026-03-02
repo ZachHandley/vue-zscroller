@@ -117,6 +117,16 @@ export interface DynamicScrollerItemProps<T = any> {
   dataIndex?: number
 }
 
+export interface ScrollData {
+  scrollTop: number
+  scrollHeight: number
+  clientHeight: number
+  isAtTop: boolean
+  isAtBottom: boolean
+  /** 0-1 ratio of current scroll position to max scroll */
+  scrollPercent: number
+}
+
 export interface ScrollPosition {
   top: number
   left: number

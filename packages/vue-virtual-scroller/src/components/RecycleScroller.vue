@@ -271,6 +271,15 @@ watch(isScrolling, (newVal, oldVal) => {
 
 const isAtBottom = ref(false)
 
+const scrollData = reactive({
+  scrollTop: 0,
+  scrollHeight: 0,
+  clientHeight: 0,
+  isAtTop: true,
+  isAtBottom: false,
+  scrollPercent: 0,
+})
+
 // Cache previous sorted key order to avoid unnecessary downstream reactivity
 let _prevSortedKeys: (string | number)[] = []
 let _prevSortedItems: VirtualScrollerItem[] = []
@@ -991,21 +1000,31 @@ const handleScroll = () => {
 
   nonContinuousRetries = 0
 
-  // Track whether user is at the bottom (within threshold) for stickToBottom
-  if (stickToBottom) {
-    const el = scrollElement.value
-    if (el) {
-      // Don't re-evaluate during programmatic scroll-to-bottom — it would
-      // see a stale scrollTop and incorrectly mark isAtBottom as false.
-      if (!_stickyScrollPending) {
-        const thresholdPx = resolveThreshold(el)
-        if (direction === 'vertical') {
-          isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - thresholdPx
-        } else {
-          isAtBottom.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - thresholdPx
-        }
+  // Always track scroll position — consumers need this regardless of stickToBottom
+  const el = scrollElement.value
+  if (el) {
+    // Don't re-evaluate isAtBottom during programmatic scroll-to-bottom when stickToBottom is
+    // active — it would see a stale scrollTop and incorrectly mark isAtBottom as false.
+    if (!(_stickyScrollPending && stickToBottom)) {
+      const thresholdPx = resolveThreshold(el)
+      if (direction === 'vertical') {
+        isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - thresholdPx
+      } else {
+        isAtBottom.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - thresholdPx
       }
     }
+
+    const scrollTop = direction === 'vertical' ? el.scrollTop : el.scrollLeft
+    const scrollHeight = direction === 'vertical' ? el.scrollHeight : el.scrollWidth
+    const clientHeight = direction === 'vertical' ? el.clientHeight : el.clientWidth
+    const maxScroll = scrollHeight - clientHeight
+
+    scrollData.scrollTop = scrollTop
+    scrollData.scrollHeight = scrollHeight
+    scrollData.clientHeight = clientHeight
+    scrollData.isAtTop = scrollTop <= 1
+    scrollData.isAtBottom = isAtBottom.value
+    scrollData.scrollPercent = maxScroll > 0 ? scrollTop / maxScroll : 0
   }
 
   if (!isScrolling.value) {
@@ -1426,6 +1445,7 @@ defineExpose({
   scrollToPercent,
   updateVisibleItems,
   isAtBottom,
+  scrollData,
   reset: () => {
     startIndex.value = 0
     endIndex.value = 0
