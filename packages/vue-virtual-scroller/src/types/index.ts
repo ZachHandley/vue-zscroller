@@ -43,6 +43,8 @@ export interface ScrollbarOptions {
   thumbBorderRadius?: string
   /** Inset offset in px from the edge (right for vertical, bottom for horizontal). Default: 0 */
   offset?: number
+  /** Scrollbar positioning mode. 'overlay' renders on top of content (default). 'outside' renders as a flex sibling next to the scroll container. */
+  position?: 'overlay' | 'outside'
 }
 
 export interface ScrollerProps<T extends Record<string, any> = Record<string, any>> {

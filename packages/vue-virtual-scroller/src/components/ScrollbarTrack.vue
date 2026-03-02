@@ -13,6 +13,7 @@ const {
   trackColor = 'transparent',
   thumbBorderRadius = '6px',
   offset = 0,
+  external = false,
 } = defineProps<{
   thumbSize: number
   thumbPosition: number
@@ -26,6 +27,8 @@ const {
   thumbBorderRadius?: string | undefined
   /** Inset offset in px from the edge (right for vertical, bottom for horizontal). Default: 0 */
   offset?: number | undefined
+  /** When true, the scrollbar is rendered as a normal-flow flex sibling instead of an absolute overlay. Default: false */
+  external?: boolean | undefined
 }>()
 
 defineEmits<{
@@ -42,6 +45,25 @@ const scrollPercent = computed(() => {
 })
 
 const trackContainerStyle = computed(() => {
+  if (external) {
+    if (isVertical.value) {
+      return {
+        position: 'relative' as const,
+        width: `${width}px`,
+        flexShrink: 0,
+        pointerEvents: 'none' as const,
+        ...(offset ? { marginRight: `${offset}px` } : {}),
+      }
+    }
+    return {
+      position: 'relative' as const,
+      height: `${width}px`,
+      flexShrink: 0,
+      pointerEvents: 'none' as const,
+      ...(offset ? { marginBottom: `${offset}px` } : {}),
+    }
+  }
+
   if (isVertical.value) {
     return {
       position: 'absolute' as const,

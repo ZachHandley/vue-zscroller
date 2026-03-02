@@ -93,6 +93,18 @@ const triggerResize = async (): Promise<void> => {
 // Provide triggerResize for deeply nested descendants via inject
 provide(DynamicScrollerItemResizeKey, triggerResize)
 
+// Debounced transitionend handler — remeasure after CSS transitions settle.
+// transitionend bubbles from descendants, so one listener catches all transitions
+// on slot content (e.g. transition-all on a message bubble wrapper).
+let transitionEndTimer: ReturnType<typeof setTimeout> | null = null
+
+const handleTransitionEnd = () => {
+  if (transitionEndTimer) clearTimeout(transitionEndTimer)
+  transitionEndTimer = setTimeout(() => {
+    updateSize()
+  }, 30)
+}
+
 // Tracks whether sizeDependencies changed while inactive.
 // The active watcher always does a double measurement pass (nextTick + RAF),
 // but this flag lets us log or conditionally extend the measurement window.
@@ -210,11 +222,21 @@ if (watchData) {
 onMounted(() => {
   if (element.value) {
     setElement(element.value)
+    // Synchronous measure — may return minItemSize if browser hasn't laid out yet.
+    // Report it to the parent but do NOT cache it via setCurrentSize(), so the
+    // ResizeObserver's first callback (which fires after layout) isn't suppressed
+    // by hasSizeChanged() returning false.
     const size = measureSize()
     if (size > minItemSize && dynamicContext) {
       dynamicContext.updateItemSize(itemKey.value, size)
     }
-    setCurrentSize(size)
+    // RAF remeasure catches items that mounted before browser layout pass
+    // (all initially visible items mount in the same tick before layout).
+    requestAnimationFrame(() => {
+      updateSize()
+    })
+    // Listen for transitionend to remeasure after CSS transitions on slot content
+    element.value.addEventListener('transitionend', handleTransitionEnd)
   }
   // Register with parent for invalidateItem()
   dynamicContext?.registerItem?.(itemKey.value, { updateSize })
@@ -223,7 +245,13 @@ onMounted(() => {
 // Cleanup on unmount
 onUnmounted(() => {
   if (element.value) {
+    element.value.removeEventListener('transitionend', handleTransitionEnd)
     setElement(null)
+  }
+
+  if (transitionEndTimer) {
+    clearTimeout(transitionEndTimer)
+    transitionEndTimer = null
   }
 
   if (dynamicContext) {
@@ -232,12 +260,22 @@ onUnmounted(() => {
   }
 })
 
-// Re-register when item key changes (recycled views)
+// Re-register when item key changes (recycled views).
+// When RecycleScroller reuses a view for a different item, onMounted doesn't
+// fire again — we must re-register the DOM element with the SharedResizeObserver
+// so callbacks map to the correct item key.
 watch(itemKey, (newKey, oldKey) => {
   if (oldKey !== undefined && oldKey !== newKey) {
     dynamicContext?.unregisterItem?.(oldKey)
+    // Reset cached size so hasSizeChanged() doesn't swallow the new item's
+    // measurement when it's within 0.5px of the old item's size.
+    setCurrentSize(minItemSize)
   }
   dynamicContext?.registerItem?.(newKey, { updateSize })
+  // Re-register element with observer so callbacks map to the correct item
+  if (element.value) {
+    setElement(element.value)
+  }
 })
 
 // Expose public methods
@@ -252,7 +290,7 @@ defineExpose({
 <style scoped>
 .vue-dynamic-scroller-item {
   box-sizing: border-box;
-  contain: layout style paint;
+  contain: style;
 }
 
 .vue-dynamic-scroller-item--inactive {

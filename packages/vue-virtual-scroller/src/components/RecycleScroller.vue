@@ -1,5 +1,5 @@
 <template>
-  <div class="vue-recycle-scroller-wrapper">
+  <div class="vue-recycle-scroller-wrapper" :class="scrollbarWrapperClass">
   <div
     ref="scrollElement"
     class="vue-recycle-scroller"
@@ -221,6 +221,13 @@ const scrollbar = _useCustomScrollbar
     })
   : null
 
+const isScrollbarExternal = _useCustomScrollbar && scrollbarOptions?.position === 'outside'
+
+const scrollbarWrapperClass = computed(() => {
+  if (!_useCustomScrollbar || !isScrollbarExternal) return undefined
+  return direction === 'vertical' ? 'scrollbar-outside-v' : 'scrollbar-outside-h'
+})
+
 const scrollbarTrackProps = computed(() => {
   if (!scrollbar) return null
   return {
@@ -235,6 +242,7 @@ const scrollbarTrackProps = computed(() => {
     trackColor: scrollbarOptions?.trackColor,
     thumbBorderRadius: scrollbarOptions?.thumbBorderRadius,
     offset: scrollbarOptions?.offset,
+    external: isScrollbarExternal,
   }
 })
 
@@ -1566,6 +1574,22 @@ defineExpose({
 .vue-recycle-scroller.hide-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+/* Outside scrollbar: vertical — wrapper becomes a row so scrollbar sits to the right */
+.vue-recycle-scroller-wrapper.scrollbar-outside-v {
+  flex-direction: row;
+}
+
+.vue-recycle-scroller-wrapper.scrollbar-outside-v > .vue-recycle-scroller {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+/* Outside scrollbar: horizontal — wrapper stays column (default), scrollbar below */
+.vue-recycle-scroller-wrapper.scrollbar-outside-h > .vue-recycle-scroller {
+  flex: 1 1 0%;
+  min-height: 0;
 }
 </style>
 
