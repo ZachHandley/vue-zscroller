@@ -21,13 +21,13 @@ export type GridScrollerComponent = typeof GridScrollerVue
 export interface RecycleScrollerInstance {
   /** The actual DOM element that scrolls (has overflow: auto). */
   scrollElement: HTMLElement | null
-  scrollToItem(index: number, alignment?: 'start' | 'center' | 'end' | 'auto'): void
-  scrollToPosition(position: number): void
-  scrollToBottom(): void
-  scrollToPercent(percent: number): void
-  updateVisibleItems(itemsChanged?: boolean, checkPositionDiff?: boolean): void
+  scrollToItem: (index: number, alignment?: 'start' | 'center' | 'end' | 'auto') => void
+  scrollToPosition: (position: number) => void
+  scrollToBottom: () => void
+  scrollToPercent: (percent: number) => void
+  updateVisibleItems: (itemsChanged?: boolean, checkPositionDiff?: boolean) => void
   isAtBottom: boolean
-  reset(): void
+  reset: () => void
 }
 
 /** Exposed API of a `<DynamicScroller>` component instance. */
@@ -36,18 +36,18 @@ export interface DynamicScrollerInstance {
   /** The actual DOM element that scrolls (delegates to RecycleScroller). */
   scrollElement: HTMLElement | null
   isAtBottom: boolean
-  updateItemSize(key: string | number, size: number): void
-  getItemSize(key: string | number): number
-  removeItemSize(key: string | number): void
-  resetSizes(): void
-  scrollToItem(index: number, alignment?: 'start' | 'center' | 'end' | 'auto'): void
-  scrollToPosition(position: number): void
-  scrollToBottom(): void
-  scrollToPercent(percent: number): void
-  updateVisibleItems(): void
+  updateItemSize: (key: string | number, size: number) => void
+  getItemSize: (key: string | number) => number
+  removeItemSize: (key: string | number) => void
+  resetSizes: () => void
+  scrollToItem: (index: number, alignment?: 'start' | 'center' | 'end' | 'auto') => void
+  scrollToPosition: (position: number) => void
+  scrollToBottom: () => void
+  scrollToPercent: (percent: number) => void
+  updateVisibleItems: () => void
   /** Imperatively remeasure a specific item by key. Waits for nextTick before measuring. */
-  invalidateItem(key: string | number): Promise<void>
-  reset(): void
+  invalidateItem: (key: string | number) => Promise<void>
+  reset: () => void
 }
 
 /** Exposed API of a `<GridScroller>` component instance. */
@@ -55,10 +55,10 @@ export interface GridScrollerInstance {
   scrollerRef: RecycleScrollerInstance | undefined
   isMeasured: boolean
   computedColumns: number
-  scrollToItem(index: number, alignment?: 'start' | 'center' | 'end' | 'auto'): void
-  scrollToPosition(position: number): void
-  scrollToBottom(): void
-  scrollToPercent(percent: number): void
-  scrollToCell(row: number, col: number): void
-  updateVisibleItems(): void
+  scrollToItem: (index: number, alignment?: 'start' | 'center' | 'end' | 'auto') => void
+  scrollToPosition: (position: number) => void
+  scrollToBottom: () => void
+  scrollToPercent: (percent: number) => void
+  scrollToCell: (row: number, col: number) => void
+  updateVisibleItems: () => void
 }

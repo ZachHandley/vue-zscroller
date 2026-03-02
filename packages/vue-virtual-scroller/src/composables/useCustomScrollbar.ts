@@ -35,7 +35,8 @@ export function useCustomScrollbar(
 
   function updateThumb(): void {
     const el = scrollElement.value
-    if (!el) return
+    if (!el)
+      return
 
     const scrollPos = isVertical ? el.scrollTop : el.scrollLeft
     const clientSize = isVertical ? el.clientHeight : el.clientWidth
@@ -75,7 +76,8 @@ export function useCustomScrollbar(
   }
 
   function startHideTimer(): void {
-    if (!AUTO_HIDE) return
+    if (!AUTO_HIDE)
+      return
     clearHideTimer()
     hideTimeout = setTimeout(() => {
       if (!isDragging.value) {
@@ -87,7 +89,8 @@ export function useCustomScrollbar(
   // --- Cleanup document listeners ---
 
   function removeDocumentListeners(): void {
-    if (typeof document === 'undefined') return
+    if (typeof document === 'undefined')
+      return
 
     if (activeMoveHandler) {
       document.removeEventListener('pointermove', activeMoveHandler)
@@ -129,7 +132,8 @@ export function useCustomScrollbar(
 
     const onPointerMove = (moveEvent: PointerEvent) => {
       const el = scrollElement.value
-      if (!el) return
+      if (!el)
+        return
 
       const delta = (isVertical ? moveEvent.clientY : moveEvent.clientX) - startPos
       const availableTrack = trackSize.value - thumbSize.value
@@ -159,7 +163,8 @@ export function useCustomScrollbar(
     e.stopPropagation()
 
     const el = scrollElement.value
-    if (!el) return
+    if (!el)
+      return
 
     const target = e.currentTarget as Element
     const rect = target.getBoundingClientRect()

@@ -1,7 +1,8 @@
-import { inject, type InjectionKey } from 'vue'
+import type { InjectionKey } from 'vue'
+import { inject } from 'vue'
 
-export const DynamicScrollerItemResizeKey: InjectionKey<() => Promise<void>> =
-  Symbol('dynamicScrollerItemResize')
+export const DynamicScrollerItemResizeKey: InjectionKey<() => Promise<void>>
+  = Symbol('dynamicScrollerItemResize')
 
 export interface UseDynamicScrollerItemReturn {
   triggerResize: () => Promise<void>
@@ -19,8 +20,8 @@ export function useDynamicScrollerItem(): UseDynamicScrollerItemReturn {
 
   if (!triggerResize) {
     console.warn(
-      '[vue-zscroller] useDynamicScrollerItem() was called outside of a DynamicScrollerItem. ' +
-      'triggerResize will be a no-op.'
+      '[vue-zscroller] useDynamicScrollerItem() was called outside of a DynamicScrollerItem. '
+      + 'triggerResize will be a no-op.',
     )
   }
 
