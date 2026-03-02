@@ -1353,31 +1353,25 @@ onMounted(() => {
     window.addEventListener('resize', fallbackResizeHandler)
   }
 
+  // Wait for Vue DOM flush (nextTick), then defer to RAF so the browser
+  // has completed style/layout calculations before we read clientHeight.
+  // This prevents measuring 0px in flex containers behind v-if transitions.
   nextTick(() => {
-    ready.value = true
-    updateVisibleItems(true)
-    handleResize()
-
-    // Double-RAF: ensures browser has completed at least one full layout+paint
-    // cycle before re-measuring. Fixes v-if transitions in flex containers where
-    // clientHeight is 0 at mount but resolves after the first paint.
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        handleResize()
-      })
+      ready.value = true
+      updateVisibleItems(true)
+      handleResize()
+
+      if (initialScrollPercent !== null) {
+        scrollToPercent(initialScrollPercent)
+      } else if (startAtBottom) {
+        scrollToBottom()
+      }
+
+      if (stickToBottom) {
+        isAtBottom.value = true
+      }
     })
-
-    if (initialScrollPercent !== null) {
-      scrollToPercent(initialScrollPercent)
-    } else if (startAtBottom) {
-      scrollToBottom()
-    }
-
-    // When stickToBottom is enabled, treat initial state as "at bottom"
-    // so that items appended before the user scrolls will auto-scroll
-    if (stickToBottom) {
-      isAtBottom.value = true
-    }
   })
 })
 
