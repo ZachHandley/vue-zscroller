@@ -17,11 +17,16 @@
     :disable-transform="disableTransform"
     :skip-hover="skipHover"
     :size-field="sizeField"
+    :item-loading-field="itemLoadingField"
     :start-at-bottom="startAtBottom"
     :initial-scroll-percent="initialScrollPercent"
     :stick-to-bottom="stickToBottom"
     :stick-to-bottom-threshold="stickToBottomThreshold"
     :skeleton-while-scrolling="skeletonWhileScrolling"
+    :custom-scrollbar="customScrollbar"
+    :scrollbar-options="scrollbarOptions"
+    :hide-scrollbar="hideScrollbar"
+    :filter="filter"
     v-bind="$attrs"
     @resize="handleScrollerResize"
     @visible="handleScrollerVisible"
@@ -30,13 +35,14 @@
     @scroll-start="handleScrollStart"
     @scroll-end="handleScrollEnd"
   >
-    <template #default="{ item: itemWithSize, index, active }">
+    <template #default="{ item: itemWithSize, index, active, loading }">
       <slot
         v-if="itemWithSize && itemWithSize['item']"
         v-bind="{
-          item: itemWithSize['item'],
+          item: _asT(itemWithSize['item']),
           index,
           active,
+          loading,
           itemWithSize
         }"
       />
@@ -44,9 +50,10 @@
         v-else
         name="empty-item"
         v-bind="{
-          item: itemWithSize?.['item'],
+          item: itemWithSize?.['item'] ? _asT(itemWithSize['item']) : undefined,
           index,
           active,
+          loading,
           itemWithSize
         }"
       >
@@ -61,7 +68,7 @@
     </template>
 
     <template #skeleton="slotProps">
-      <slot name="skeleton" v-bind="slotProps" />
+      <slot name="skeleton" :item="_asT((slotProps as any).item)" :index="(slotProps as any).index" />
     </template>
 
     <template #before>
@@ -78,12 +85,13 @@
   </RecycleScroller>
 </template>
 
-<script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted, provide, useTemplateRef } from 'vue'
+<script setup lang="ts" generic="T extends Record<string, any>">
+import { computed, nextTick, ref, watch, onUnmounted, provide, useTemplateRef } from 'vue'
 import RecycleScroller from './RecycleScroller.vue'
-import { useSSRSafe } from '../composables/useSSRSafe'
+// useSSRSafe removed — no longer needed after onMounted pre-population was deleted
 import { useItemValidation } from '../composables/useAsyncItems'
 import type { DynamicScrollerProps, DynamicScrollerEmits, VirtualScrollerItem, ResizeEvent, VisibilityEvent, UpdateEvent } from '../types'
+import type { RecycleScrollerInstance } from '../types/components'
 
 const {
   items,
@@ -102,32 +110,37 @@ const {
   disableTransform = false,
   skipHover = false,
   sizeField = 'size',
+  itemLoadingField = 'loading',
   startAtBottom = false,
   initialScrollPercent = null,
   stickToBottom = false,
   stickToBottomThreshold = 0.05,
   skeletonWhileScrolling = false,
-} = defineProps<DynamicScrollerProps>()
+  customScrollbar = false,
+  scrollbarOptions,
+  hideScrollbar = false,
+  filter,
+} = defineProps<DynamicScrollerProps<T>>()
 
 const emit = defineEmits<DynamicScrollerEmits>()
 
 defineSlots<{
   before: () => any
-  default: (props: { item: VirtualScrollerItem | null | undefined; index: number; active: boolean; itemWithSize: any }) => any
-  'empty-item': (props: { index: number }) => any
-  skeleton: (props: { item: VirtualScrollerItem | null | undefined; index: number }) => any
+  default: (props: { item: T; index: number; active: boolean; loading: boolean; itemWithSize: any }) => any
+  'empty-item': (props: { item: T | null | undefined; index: number; active: boolean; loading: boolean; itemWithSize: any }) => any
+  skeleton: (props: { item: T | null | undefined; index: number }) => any
   empty: () => any
   after: () => any
 }>()
 
-// Refs using useTemplateRef for better type safety
-const scrollerRef = useTemplateRef<InstanceType<typeof RecycleScroller>>('scrollerRef')
+// Refs — use explicit instance interface since generic components break InstanceType<>
+const scrollerRef = useTemplateRef<RecycleScrollerInstance>('scrollerRef')
 
-// SSR safety
-const { isClient } = useSSRSafe()
+// Cast helper: bridge internal VirtualScrollerItem to generic T at slot boundary
+const _asT = (item: any): T => item
 
 // Enhanced item validation
-const { isItemValid, getItemKey } = useItemValidation()
+const { isItemValid, getItemKey } = useItemValidation(keyField)
 
 // Shared ResizeObserver: single observer for all DynamicScrollerItem children.
 // Batches all resize callbacks into a single microtask flush that feeds into
@@ -137,6 +150,7 @@ class SharedResizeObserver {
   private callbacks = new Map<Element, (entry: ResizeObserverEntry) => void>()
   private pendingEntries: ResizeObserverEntry[] = []
   private flushScheduled = false
+  onAfterFlush: (() => void) | null = null
 
   constructor() {
     this.observer = new ResizeObserver((entries) => {
@@ -155,6 +169,9 @@ class SharedResizeObserver {
       if (cb) cb(entry)
     }
     this.pendingEntries.length = 0
+    // Synchronously flush pending size updates in the same microtask,
+    // collapsing 2 microtasks into 1 and eliminating settling jitter.
+    this.onAfterFlush?.()
   }
 
   observe(el: Element, callback: (entry: ResizeObserverEntry) => void) {
@@ -189,15 +206,11 @@ const localItems = ref<VirtualScrollerItem[]>(items || [])
 // microtask and trigger a single recomputation via the version counter.
 const _sizeMap = new Map<string | number, number>()
 const _pendingSizeUpdates = new Map<string | number, number>()
+// Track items that haven't been measured yet. Used by scrollToBottom to
+// know when all items have settled to their real sizes.
+const _unmeasuredKeys = new Set<string | number>()
 const sizeVersion = ref(0)
 let _pendingFlush = false
-
-// Track which keys had their sizes change in the last flush — used by
-// itemsWithSize to do an O(changed) patch instead of O(N) full scan.
-const _dirtyKeys = new Set<string | number>()
-// When true, forces itemsWithSize to do a full rebuild (items list changed,
-// not just sizes). Reset after each computed evaluation.
-let _forceFullRebuild = false
 
 const _flushSizeUpdates = () => {
   _pendingFlush = false
@@ -205,7 +218,6 @@ const _flushSizeUpdates = () => {
   for (const [key, size] of _pendingSizeUpdates) {
     if (_sizeMap.get(key) !== size) {
       _sizeMap.set(key, size)
-      _dirtyKeys.add(key)
       changed = true
     }
   }
@@ -223,14 +235,17 @@ const _scheduleFlush = () => {
   queueMicrotask(_flushSizeUpdates)
 }
 
+// Collapse double-microtask: after SharedResizeObserver dispatches all
+// resize callbacks (which call updateItemSize → _scheduleFlush), flush
+// pending size updates synchronously in the same microtask.
+sharedResizeObserver.onAfterFlush = () => {
+  if (_pendingFlush) _flushSizeUpdates()
+}
+
 // Memoized itemsWithSize: reuse wrapper objects when item reference and size
 // haven't changed. This prevents the reactive cascade where a single size
 // change creates N new wrapper objects, triggering RecycleScroller's items
 // watcher and DynamicScrollerItem watchers for every visible item.
-//
-// Optimisation: when only sizes changed (not the items list), we use the
-// _dirtyKeys set to patch only the changed entries in O(dirty) time, then
-// splice them into the existing cached array, avoiding O(N) iteration.
 interface ItemWithSize {
   id: string | number
   item: VirtualScrollerItem | null | undefined
@@ -239,48 +254,15 @@ interface ItemWithSize {
 }
 let _cachedItemsWithSize: ItemWithSize[] = []
 let _cachedKeyMap = new Map<string | number, ItemWithSize>()
-// Index lookup: key -> position in _cachedItemsWithSize for O(1) patching
-let _cachedKeyIndex = new Map<string | number, number>()
 
 const itemsWithSize = computed(() => {
   // Read sizeVersion to establish reactivity dependency
   const _v = sizeVersion.value
   void _v
 
-  // Fast path: only sizes changed (not the items list). Patch just the dirty
-  // entries in O(dirty) time instead of scanning all N items.
-  if (!_forceFullRebuild && _dirtyKeys.size > 0 && _cachedItemsWithSize.length === localItems.value.length && _cachedItemsWithSize.length > 0) {
-    let patched = false
-    for (const key of _dirtyKeys) {
-      const idx = _cachedKeyIndex.get(key)
-      if (idx === undefined) continue
-      const prev = _cachedItemsWithSize[idx]
-      if (!prev) continue
-      const newSize = _sizeMap.get(key) || minItemSize
-      if (prev.size !== newSize) {
-        const entry = { id: prev.id, item: prev.item, size: newSize, isValid: prev.isValid }
-        _cachedItemsWithSize[idx] = entry
-        _cachedKeyMap.set(key, entry)
-        patched = true
-      }
-    }
-    _dirtyKeys.clear()
-    if (patched) {
-      // Return a new array reference so downstream watchers fire, but the
-      // array is a shallow copy — only changed entries are new objects.
-      _cachedItemsWithSize = _cachedItemsWithSize.slice()
-    }
-    return _cachedItemsWithSize
-  }
-
-  // Full rebuild path: items list changed or first computation
-  _dirtyKeys.clear()
-  _forceFullRebuild = false
-
   const result: ItemWithSize[] = []
   let anyChanged = false
   const seenKeys = new Set<string | number>()
-  const newKeyIndex = new Map<string | number, number>()
 
   for (const item of localItems.value) {
     if (!isItemValid(item)) {
@@ -301,20 +283,16 @@ const itemsWithSize = computed(() => {
     const prev = _cachedKeyMap.get(key)
 
     if (prev && prev.item === item && prev.size === size) {
-      newKeyIndex.set(key, result.length)
       result.push(prev) // Reuse same object reference — no downstream triggers
     } else {
       const entry = { id: key, item, size, isValid: true }
-      newKeyIndex.set(key, result.length)
       result.push(entry)
-      _cachedKeyMap.set(key, entry) // Update in-place — only changed entries
+      _cachedKeyMap.set(key, entry)
       anyChanged = true
     }
   }
 
   // If nothing changed and same length, return the exact same array reference.
-  // This prevents RecycleScroller's items watcher from firing, sizeData from
-  // recomputing, and DynamicScrollerItem watchers from re-measuring.
   if (!anyChanged && result.length === _cachedItemsWithSize.length) {
     return _cachedItemsWithSize
   }
@@ -329,12 +307,40 @@ const itemsWithSize = computed(() => {
   }
 
   _cachedItemsWithSize = result
-  _cachedKeyIndex = newKeyIndex
   return result
+})
+
+// Scroll position preservation: when items above the viewport change size
+// (e.g., images loading, dynamic content), adjust scrollTop so the user
+// stays viewing the same content. Ported from the original vue-virtual-scroller.
+watch(itemsWithSize, (next, prev) => {
+  if (!prev || prev.length === 0 || next.length === 0) return
+  const el = (scrollerRef.value as any)?.$el as HTMLElement | undefined
+  if (!el) return
+  const scrollPos = direction === 'vertical' ? el.scrollTop : el.scrollLeft
+  if (scrollPos <= 0) return
+
+  let prevTop = 0
+  let newTop = 0
+  const len = Math.min(next.length, prev.length)
+  for (let i = 0; i < len; i++) {
+    if (prevTop >= scrollPos) break
+    prevTop += prev[i]!.size || minItemSize
+    newTop += next[i]!.size || minItemSize
+  }
+  const offset = newTop - prevTop
+  if (offset === 0) return
+
+  if (direction === 'vertical') {
+    el.scrollTop += offset
+  } else {
+    el.scrollLeft += offset
+  }
 })
 
 // Methods
 const updateItemSize = (key: string | number, size: number) => {
+  _unmeasuredKeys.delete(key)
   if (_sizeMap.get(key) === size) return
   _pendingSizeUpdates.set(key, size)
   _scheduleFlush()
@@ -355,9 +361,30 @@ const flushSizeUpdates = () => {
   }
 }
 
+// Registry of active DynamicScrollerItem instances, keyed by item key.
+// Used by invalidateItem() for parent-level imperative remeasure.
+const _itemRegistry = new Map<string | number, { updateSize: () => void }>()
+
+const registerItem = (key: string | number, instance: { updateSize: () => void }) => {
+  _itemRegistry.set(key, instance)
+}
+
+const unregisterItem = (key: string | number) => {
+  _itemRegistry.delete(key)
+}
+
+const invalidateItem = async (key: string | number): Promise<void> => {
+  await nextTick()
+  const instance = _itemRegistry.get(key)
+  if (instance) {
+    instance.updateSize()
+  }
+}
+
 const resetSizes = () => {
   _sizeMap.clear()
   _pendingSizeUpdates.clear()
+  _unmeasuredKeys.clear()
   sizeVersion.value++
 }
 
@@ -389,18 +416,29 @@ const handleScrollEnd = () => {
 // Watch for items changes
 watch(() => items, (newItems: VirtualScrollerItem[] | null | undefined) => {
   localItems.value = newItems || []
-  // Mark for full rebuild since the items array itself changed
-  _forceFullRebuild = true
 
-  // Clean up sizes for items that no longer exist
+  // Clean up sizes and unmeasured tracking for removed items
   const validItems = (newItems || []).filter(item => item && isItemValid(item))
   const currentKeys = new Set(validItems.map(item => getItemKey(item)))
-  let cleaned = false
 
+  // Register new item keys as unmeasured
+  for (const key of currentKeys) {
+    if (!_sizeMap.has(key)) {
+      _unmeasuredKeys.add(key)
+    }
+  }
+
+  let cleaned = false
   for (const key of _sizeMap.keys()) {
     if (!currentKeys.has(key)) {
       _sizeMap.delete(key)
       cleaned = true
+    }
+  }
+  // Clean stale unmeasured keys
+  for (const key of _unmeasuredKeys) {
+    if (!currentKeys.has(key)) {
+      _unmeasuredKeys.delete(key)
     }
   }
 
@@ -409,35 +447,22 @@ watch(() => items, (newItems: VirtualScrollerItem[] | null | undefined) => {
   }
 })
 
-// Lifecycle hooks
-onMounted(() => {
-  if (isClient.value) {
-    // Initialize sizes for existing items
-    let initialized = false
-    localItems.value.forEach(item => {
-      const key = getItemKey(item)
-      if (!_sizeMap.has(key)) {
-        _sizeMap.set(key, minItemSize)
-        initialized = true
-      }
-    })
-    if (initialized) {
-      sizeVersion.value++
-    }
-  }
-})
-
 // Expose isAtBottom from inner RecycleScroller
 const isAtBottom = computed(() => scrollerRef.value?.isAtBottom ?? false)
+
+// Expose the inner scroll element for external scroll utilities (e.g. useInfiniteScroll)
+const scrollElement = computed(() => scrollerRef.value?.scrollElement ?? null)
 
 // Expose public methods
 defineExpose({
   scrollerRef,
+  scrollElement,
   isAtBottom,
   updateItemSize,
   getItemSize,
   removeItemSize,
   resetSizes,
+  invalidateItem,
   scrollToItem: (index: number, alignment: 'start' | 'center' | 'end' | 'auto' = 'auto') => {
     flushSizeUpdates()
     scrollerRef.value?.scrollToItem(index, alignment)
@@ -448,7 +473,22 @@ defineExpose({
   },
   scrollToBottom: () => {
     flushSizeUpdates()
-    scrollerRef.value?.scrollToBottom()
+    if (_unmeasuredKeys.size === 0) {
+      scrollerRef.value?.scrollToBottom()
+      return
+    }
+    // Some items haven't been measured yet — poll with rAF until settled
+    let attempts = 0
+    const maxAttempts = 10
+    const waitAndScroll = () => {
+      flushSizeUpdates()
+      scrollerRef.value?.scrollToBottom()
+      attempts++
+      if (_unmeasuredKeys.size > 0 && attempts < maxAttempts) {
+        requestAnimationFrame(waitAndScroll)
+      }
+    }
+    requestAnimationFrame(waitAndScroll)
   },
   scrollToPercent: (percent: number) => {
     flushSizeUpdates()
@@ -469,7 +509,10 @@ provide('dynamicScrollerContext', {
   getItemSize,
   removeItemSize,
   sharedResizeObserver,
-  direction: computed(() => direction)
+  direction: computed(() => direction),
+  keyField,
+  registerItem,
+  unregisterItem,
 })
 </script>
 

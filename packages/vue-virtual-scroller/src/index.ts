@@ -6,6 +6,8 @@ import RecycleScroller from './components/RecycleScroller.vue'
 import config from './config'
 
 export { useAsyncItems, useItemValidation } from './composables/useAsyncItems'
+export { useCustomScrollbar } from './composables/useCustomScrollbar'
+export { useDynamicScrollerItem } from './composables/useDynamicScrollerItem'
 export { useDynamicSize } from './composables/useDynamicSize'
 export { useGridLayout } from './composables/useGridLayout'
 export { useIdState } from './composables/useIdState'
@@ -25,6 +27,13 @@ export type {
   RecycleScrollerComponent,
 } from './types/components'
 
+// Component instance types (use these for template refs)
+export type {
+  DynamicScrollerInstance,
+  GridScrollerInstance,
+  RecycleScrollerInstance,
+} from './types/components'
+
 // Component exports
 export {
   DynamicScroller,
@@ -37,14 +46,15 @@ export {
 export { useDebounceFn, useIntersectionObserver, useLocalStorage, useRafFn, useResizeObserver, useScrollLock, useSessionStorage, useStorage, useThrottleFn } from '@vueuse/core'
 
 function registerComponents(app: App, prefix: string = '') {
-  app.component(`${prefix}recycle-scroller`, RecycleScroller)
-  app.component(`${prefix}RecycleScroller`, RecycleScroller)
-  app.component(`${prefix}dynamic-scroller`, DynamicScroller)
-  app.component(`${prefix}DynamicScroller`, DynamicScroller)
+  // Generic components need `as any` for app.component() which expects non-generic Component type
+  app.component(`${prefix}recycle-scroller`, RecycleScroller as any)
+  app.component(`${prefix}RecycleScroller`, RecycleScroller as any)
+  app.component(`${prefix}dynamic-scroller`, DynamicScroller as any)
+  app.component(`${prefix}DynamicScroller`, DynamicScroller as any)
   app.component(`${prefix}dynamic-scroller-item`, DynamicScrollerItem)
   app.component(`${prefix}DynamicScrollerItem`, DynamicScrollerItem)
-  app.component(`${prefix}grid-scroller`, GridScroller)
-  app.component(`${prefix}GridScroller`, GridScroller)
+  app.component(`${prefix}grid-scroller`, GridScroller as any)
+  app.component(`${prefix}GridScroller`, GridScroller as any)
 }
 
 interface PluginOptions {

@@ -55,6 +55,10 @@ export function useDynamicSize(
   }
 
   const handleResizeEntry = (entry: ResizeObserverEntry) => {
+    // Discard stale callbacks from recycled views — the DOM node may have been
+    // reassigned to a different item but the old callback is still in the map.
+    if (entry.target !== element.value) return
+
     // Use borderBoxSize when available — it includes padding and border,
     // matching getBoundingClientRect() used in measureSize(). Using contentRect
     // would exclude padding/borders and cause measurement oscillation.
@@ -93,6 +97,18 @@ export function useDynamicSize(
     currentSize.value = size
   }
 
+  const pauseObserver = () => {
+    if (element.value && sharedObserver) {
+      sharedObserver.unobserve(element.value)
+    }
+  }
+
+  const resumeObserver = () => {
+    if (element.value && sharedObserver) {
+      sharedObserver.observe(element.value, handleResizeEntry)
+    }
+  }
+
   return {
     itemSize: currentSize as Ref<number>,
     measureSize,
@@ -100,5 +116,7 @@ export function useDynamicSize(
     hasSizeChanged,
     setElement,
     setCurrentSize,
+    pauseObserver,
+    resumeObserver,
   }
 }

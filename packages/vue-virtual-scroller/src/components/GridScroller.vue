@@ -3,6 +3,7 @@
     ref="containerRef"
     class="vue-grid-scroller"
     :class="[`direction-${direction}`]"
+    :style="containerStyle"
   >
     <slot v-if="!isMeasured" name="loading" />
     <RecycleScroller
@@ -29,6 +30,8 @@
       :skip-hover="skipHover"
       :start-at-bottom="startAtBottom"
       :initial-scroll-percent="initialScrollPercent"
+      :skeleton-while-scrolling="skeletonWhileScrolling"
+      :item-loading-field="itemLoadingField"
       v-bind="$attrs"
       @resize="handleResize"
       @visible="handleVisible"
@@ -37,11 +40,12 @@
       @scroll-start="handleScrollStart"
       @scroll-end="handleScrollEnd"
     >
-      <template #default="{ item, index, active }">
+      <template #default="{ item, index, active, loading }">
         <slot
           :item="item"
           :index="index"
           :active="active"
+          :loading="loading"
           :column="index % computedColumns"
           :row="Math.floor(index / computedColumns)"
           :cell-width="cellWidth"
@@ -55,11 +59,12 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends Record<string, any>">
 import { computed, watch, useTemplateRef, toRef } from 'vue'
 import RecycleScroller from './RecycleScroller.vue'
 import { useGridLayout } from '../composables/useGridLayout'
-import type { GridScrollerProps, GridScrollerEmits, GridScrollerSlotProps, ResizeEvent, VisibilityEvent, UpdateEvent } from '../types'
+import type { GridScrollerProps, GridScrollerEmits, ResizeEvent, VisibilityEvent, UpdateEvent } from '../types'
+import type { RecycleScrollerInstance } from '../types/components'
 
 const {
   items,
@@ -72,6 +77,7 @@ const {
   rowGap = 0,
   columnGap = 0,
   gap = 0,
+  padding = 0,
   direction = 'vertical',
   pageMode = false,
   prerender = 0,
@@ -86,12 +92,14 @@ const {
   skipHover = false,
   startAtBottom = false,
   initialScrollPercent = null,
-} = defineProps<GridScrollerProps>()
+  skeletonWhileScrolling = false,
+  itemLoadingField = 'loading',
+} = defineProps<GridScrollerProps<T>>()
 
 const emit = defineEmits<GridScrollerEmits>()
 
 defineSlots<{
-  default: (props: GridScrollerSlotProps) => any
+  default: (props: { item: T; index: number; active: boolean; loading: boolean; column: number; row: number; cellWidth: number; cellHeight: number }) => any
   before: () => any
   after: () => any
   empty: () => any
@@ -99,11 +107,20 @@ defineSlots<{
 }>()
 
 const containerRef = useTemplateRef<HTMLElement>('containerRef')
-const scrollerRef = useTemplateRef<InstanceType<typeof RecycleScroller>>('scrollerRef')
+// Use explicit instance interface since generic components break InstanceType<>
+const scrollerRef = useTemplateRef<RecycleScrollerInstance>('scrollerRef')
 
 // Resolve gaps: specific overrides shorthand
 const resolvedRowGap = computed(() => rowGap || gap)
 const resolvedColumnGap = computed(() => columnGap || gap)
+
+// Container padding style — applied to the outer div so that:
+// 1. ResizeObserver.contentRect automatically excludes padding from width measurements
+// 2. The absolutely-positioned RecycleScroller fills only the content area (inside padding)
+const containerStyle = computed(() => {
+  if (!padding) return undefined
+  return { padding: typeof padding === 'number' ? `${padding}px` : padding }
+})
 
 const {
   isMeasured,

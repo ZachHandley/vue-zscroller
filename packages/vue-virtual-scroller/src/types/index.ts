@@ -26,8 +26,29 @@ export interface ViewItem<T = any> {
   }
 }
 
-export interface ScrollerProps {
-  items: VirtualScrollerItem[] | null | undefined
+export interface ScrollbarOptions {
+  /** Track width in px. Default: 12 */
+  width?: number
+  /** Minimum thumb height in px. Default: 30 */
+  minThumbSize?: number
+  /** Auto-hide scrollbar when not scrolling. Default: true */
+  autoHide?: boolean
+  /** Milliseconds before auto-hiding. Default: 1000 */
+  autoHideDelay?: number
+  /** CSS color for the thumb. Default: 'rgba(0, 0, 0, 0.4)' */
+  thumbColor?: string
+  /** CSS color for the track. Default: 'transparent' */
+  trackColor?: string
+  /** CSS border-radius for the thumb. Default: '6px' */
+  thumbBorderRadius?: string
+  /** Inset offset in px from the edge (right for vertical, bottom for horizontal). Default: 0 */
+  offset?: number
+  /** Scrollbar positioning mode. 'overlay' renders on top of content (default). 'outside' renders as a flex sibling next to the scroll container. */
+  position?: 'overlay' | 'outside'
+}
+
+export interface ScrollerProps<T extends Record<string, any> = Record<string, any>> {
+  items: T[] | null | undefined
   keyField?: string
   direction?: 'vertical' | 'horizontal'
   itemSize?: number | null
@@ -67,11 +88,19 @@ export interface ScrollerProps {
   stickToBottomThreshold?: number | string
   /** When enabled, shows lightweight skeleton placeholders during active scrolling instead of rendering full item content. */
   skeletonWhileScrolling?: boolean
+  /** Field name on item objects that indicates loading state. When item[field] is truthy, `loading: true` is passed in slot props. Default: 'loading' */
+  itemLoadingField?: string
   /** Optional filter function applied to items before rendering. Items for which the function returns false are excluded. */
-  filter?: (item: VirtualScrollerItem) => boolean
+  filter?: ((item: VirtualScrollerItem) => boolean) | undefined
+  /** Enable the built-in custom scrollbar overlay. When true, the native scrollbar is hidden and a custom track/thumb is rendered. Default: false */
+  customScrollbar?: boolean
+  /** Options for the custom scrollbar appearance and behavior. Only used when customScrollbar is true. */
+  scrollbarOptions?: ScrollbarOptions | undefined
+  /** Hide all scrollbars (native and custom) while keeping the area scrollable via mousewheel/touch. Default: false */
+  hideScrollbar?: boolean
 }
 
-export interface DynamicScrollerProps extends ScrollerProps {
+export interface DynamicScrollerProps<T extends Record<string, any> = Record<string, any>> extends ScrollerProps<T> {
   minItemSize: number
 }
 
@@ -148,16 +177,23 @@ export interface VirtualScrollerSlotProps<T = any> {
   item: VirtualScrollerItem<T> | null | undefined
   index: number
   active: boolean
+  /** True when the item is in a loading state (scroll-based skeleton or item's own loading field). */
+  loading: boolean
 }
 
 export interface DynamicScrollerSlotProps<T = any> extends VirtualScrollerSlotProps<T> {
   itemWithSize: (VirtualScrollerItem<T> & { size: number, isValid?: boolean }) | null | undefined
 }
 
+export interface DynamicScrollerItemSlotProps {
+  /** Trigger a remeasure of this DynamicScrollerItem. Waits for nextTick before measuring. */
+  triggerResize: () => Promise<void>
+}
+
 // GridScroller types
 
-export interface GridScrollerProps {
-  items: VirtualScrollerItem[] | null | undefined
+export interface GridScrollerProps<T extends Record<string, any> = Record<string, any>> {
+  items: T[] | null | undefined
   keyField?: string
   itemWidth: number
   itemHeight: number
@@ -167,6 +203,8 @@ export interface GridScrollerProps {
   rowGap?: number
   columnGap?: number
   gap?: number
+  /** Padding around the grid content. Number is pixels, string is any CSS padding value (e.g. '16px', '1rem', '16px 24px'). Default: 0 */
+  padding?: number | string
   direction?: 'vertical' | 'horizontal'
   pageMode?: boolean
   prerender?: number
@@ -181,8 +219,16 @@ export interface GridScrollerProps {
   skipHover?: boolean
   startAtBottom?: boolean
   initialScrollPercent?: number | null
+  /** When enabled, shows lightweight skeleton placeholders during active scrolling instead of rendering full item content. */
+  skeletonWhileScrolling?: boolean
+  /** Field name on item objects that indicates loading state. When item[field] is truthy, `loading: true` is passed in slot props. Default: 'loading' */
+  itemLoadingField?: string
   /** Optional filter function applied to items before rendering. Items for which the function returns false are excluded. */
-  filter?: (item: VirtualScrollerItem) => boolean
+  filter?: ((item: VirtualScrollerItem) => boolean) | undefined
+  /** Enable the built-in custom scrollbar overlay. When true, the native scrollbar is hidden and a custom track/thumb is rendered. Default: false */
+  customScrollbar?: boolean
+  /** Options for the custom scrollbar appearance and behavior. Only used when customScrollbar is true. */
+  scrollbarOptions?: ScrollbarOptions | undefined
 }
 
 export interface GridScrollerEmits {
@@ -199,6 +245,8 @@ export interface GridScrollerSlotProps<T = any> {
   item: VirtualScrollerItem<T> | null | undefined
   index: number
   active: boolean
+  /** True when the item is in a loading state (scroll-based skeleton or item's own loading field). */
+  loading: boolean
   column: number
   row: number
   cellWidth: number

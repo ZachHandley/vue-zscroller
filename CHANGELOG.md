@@ -1,3 +1,15 @@
+# 0.2.4
+
+
+### Features
+
+* **DynamicScrollerItem:** expose `triggerResize` via scoped slot prop for imperative item remeasure
+* **DynamicScrollerItem:** provide `triggerResize` via inject for deeply nested descendants
+* **DynamicScroller:** add `invalidateItem(key)` instance method for parent-level imperative remeasure
+* **useDynamicScrollerItem:** new composable for injecting `triggerResize` without prop drilling
+
+
+
 # [2.0.0-beta.8](https://github.com/Akryum/vue-virtual-scroller/compare/v2.0.0-beta.7...v2.0.0-beta.8) (2023-02-06)
 
 

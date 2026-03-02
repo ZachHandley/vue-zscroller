@@ -54,6 +54,9 @@ importers:
       '@vueuse/core':
         specifier: ^10.11.1
         version: 10.11.1(vue@3.5.22(typescript@5.9.3))
+      vue-zscroller:
+        specifier: ^0.2.3
+        version: 0.2.3(vue@3.5.22(typescript@5.9.3))
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^4.6.2
@@ -2530,6 +2533,11 @@ packages:
     hasBin: true
     peerDependencies:
       typescript: '>=5.0.0'
+
+  vue-zscroller@0.2.3:
+    resolution: {integrity: sha512-lRblmTowaHqtTBEhMd1SHjDZq6s3l9LNLMcW/GndGbuTT8ZExPtyGOBdYbWfALUPpBYIXjXkRtRK2b6rjM+XBQ==}
+    peerDependencies:
+      vue: ^3.4.0
 
   vue@3.5.22:
     resolution: {integrity: sha512-toaZjQ3a/G/mYaLSbV+QsQhIdMo9x5rrqIpYRObsJ6T/J+RyCSFwN2LHNVH9v8uIcljDNa3QzPVdv3Y6b9hAJQ==}
@@ -5371,6 +5379,13 @@ snapshots:
       '@volar/typescript': 2.4.15
       '@vue/language-core': 2.2.12(typescript@5.9.3)
       typescript: 5.9.3
+
+  vue-zscroller@0.2.3(vue@3.5.22(typescript@5.9.3)):
+    dependencies:
+      '@vueuse/core': 10.11.1(vue@3.5.22(typescript@5.9.3))
+      vue: 3.5.22(typescript@5.9.3)
+    transitivePeerDependencies:
+      - '@vue/composition-api'
 
   vue@3.5.22(typescript@5.9.3):
     dependencies:
