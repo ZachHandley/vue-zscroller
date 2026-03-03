@@ -505,7 +505,6 @@ const sizeData = computed(() => {
 const wrapperStyle = computed<CSSProperties>(() => {
   const sizeKey = direction === 'vertical' ? 'minHeight' : 'minWidth'
   return {
-    position: 'relative',
     [sizeKey]: `${Math.max(totalSize.value, 0)}px`
   }
 })
@@ -1203,9 +1202,6 @@ const scrollToItem = (index: number, alignment: 'start' | 'center' | 'end' | 'au
 
 const getViewStyle = (view: InternalView): CSSProperties => {
   const style: CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
     visibility: view.nr.used ? 'visible' : 'hidden'
   }
 
@@ -1237,14 +1233,6 @@ const getViewStyle = (view: InternalView): CSSProperties => {
     } else {
       style.width = `${mainSize}px`
       style.height = `${crossSize}px`
-    }
-  } else {
-    // Non-grid: fill cross-axis (reinforces scoped CSS for environments
-    // where scope attribute propagation to child components is unreliable)
-    if (direction === 'vertical') {
-      style.width = '100%'
-    } else {
-      style.height = '100%'
     }
   }
 
