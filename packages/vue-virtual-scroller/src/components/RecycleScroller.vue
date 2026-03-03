@@ -1202,6 +1202,9 @@ const scrollToItem = (index: number, alignment: 'start' | 'center' | 'end' | 'au
 
 const getViewStyle = (view: InternalView): CSSProperties => {
   const style: CSSProperties = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
     visibility: view.nr.used ? 'visible' : 'hidden'
   }
 
