@@ -505,6 +505,7 @@ const sizeData = computed(() => {
 const wrapperStyle = computed<CSSProperties>(() => {
   const sizeKey = direction === 'vertical' ? 'minHeight' : 'minWidth'
   return {
+    position: 'relative',
     [sizeKey]: `${Math.max(totalSize.value, 0)}px`
   }
 })
