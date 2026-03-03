@@ -1545,7 +1545,7 @@ defineExpose({
   flex-shrink: 0;
 }
 
-.vue-recycle-scroller__item-view {
+:deep(.vue-recycle-scroller__item-view) {
   position: absolute;
   top: 0;
   left: 0;
@@ -1553,23 +1553,23 @@ defineExpose({
   contain: layout style paint;
 }
 
-.vue-recycle-scroller.ready.direction-vertical:not(.grid-mode) .vue-recycle-scroller__item-view {
+.vue-recycle-scroller.ready.direction-vertical:not(.grid-mode) :deep(.vue-recycle-scroller__item-view) {
   width: 100%;
 }
 
-.vue-recycle-scroller.ready.direction-horizontal:not(.grid-mode) .vue-recycle-scroller__item-view {
+.vue-recycle-scroller.ready.direction-horizontal:not(.grid-mode) :deep(.vue-recycle-scroller__item-view) {
   height: 100%;
 }
 
-.vue-recycle-scroller__item-view.hover {
+:deep(.vue-recycle-scroller__item-view.hover) {
   z-index: 1;
 }
 
-.vue-recycle-scroller.ready .vue-recycle-scroller__item-view {
+.vue-recycle-scroller.ready :deep(.vue-recycle-scroller__item-view) {
   transition: none;
 }
 
-.vue-recycle-scroller.ready.reorder-transition .vue-recycle-scroller__item-view {
+.vue-recycle-scroller.ready.reorder-transition :deep(.vue-recycle-scroller__item-view) {
   transition: transform 200ms ease-out;
 }
 
@@ -1586,7 +1586,7 @@ defineExpose({
   overflow-y: hidden;
 }
 
-.vue-recycle-scroller__item-view--invalid {
+:deep(.vue-recycle-scroller__item-view--invalid) {
   pointer-events: none;
   user-select: none;
   opacity: 0.5;

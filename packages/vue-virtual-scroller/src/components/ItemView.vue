@@ -24,13 +24,8 @@ defineSlots<{
 }>()
 </script>
 
-<style>
+<style scoped>
 .vue-recycle-scroller__item-view {
   box-sizing: border-box;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  contain: layout style paint;
 }
 </style>
