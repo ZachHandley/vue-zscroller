@@ -111,7 +111,7 @@
 </template>
 
 <script setup lang="ts" generic="T extends Record<string, any>">
-import { computed, nextTick, onMounted, onUnmounted, ref, shallowReactive, markRaw, useTemplateRef, watch, type CSSProperties } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, shallowReactive, markRaw, useTemplateRef, watch, type CSSProperties } from 'vue'
 import ItemView from './ItemView.vue'
 import ScrollbarTrack from './ScrollbarTrack.vue'
 import { useCustomScrollbar } from '../composables/useCustomScrollbar'
