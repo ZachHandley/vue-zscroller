@@ -1238,6 +1238,14 @@ const getViewStyle = (view: InternalView): CSSProperties => {
       style.width = `${mainSize}px`
       style.height = `${crossSize}px`
     }
+  } else {
+    // Non-grid: fill cross-axis (reinforces scoped CSS for environments
+    // where scope attribute propagation to child components is unreliable)
+    if (direction === 'vertical') {
+      style.width = '100%'
+    } else {
+      style.height = '100%'
+    }
   }
 
   return style
