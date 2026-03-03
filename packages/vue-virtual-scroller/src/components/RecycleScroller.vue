@@ -330,6 +330,9 @@ let fallbackResizeHandler: (() => void) | null = null
 // prevents handleScroll from setting isAtBottom = false during the scroll.
 let _stickyScrollPending = false
 
+// When true, a data-driven reorder is in progress and CSS transitions are active.
+let _reorderTransitionActive = false
+
 /** Parse threshold value into pixels. Accepts:
  *  - number 0-1: percentage of container height (0.05 = 5%)
  *  - number > 1: fixed pixels
@@ -1297,13 +1300,32 @@ watch(items, (newArr) => {
   if (newLen === oldLen && newLen > 0) {
     if (oldFirstKey === previousFirstKey && oldLastKey === previousLastKey) {
       if (itemSize === null) {
-        // Variable-size mode: positions are cumulative — each item's position
-        // equals the sum of all preceding items' sizes.  A size change on ANY
-        // item (even outside the visible window) shifts every subsequent
-        // item's position.  The items watcher only fires when the array
-        // reference changed, which means at least one wrapper was replaced
-        // (i.e. at least one size actually changed).  Always recalculate.
-        nextTick(() => updateVisibleItems(false))
+        // Variable-size mode: positions are cumulative — recalculate always.
+        // Check if visible items actually reordered (not just a size change)
+        // to enable smooth transition animation.
+        let reordered = false
+        for (let i = startIndex.value; i < endIndex.value && i < newLen; i++) {
+          const item = newArr[i]
+          const key = simpleArray.value ? i : item?.[keyField]
+          const view = views.get(key)
+          if (view && view.nr.index !== i) {
+            reordered = true
+            break
+          }
+        }
+        if (reordered) {
+          _reorderTransitionActive = true
+          scrollElement.value?.classList.add('reorder-transition')
+          nextTick(() => {
+            updateVisibleItems(false)
+            setTimeout(() => {
+              _reorderTransitionActive = false
+              scrollElement.value?.classList.remove('reorder-transition')
+            }, 200)
+          })
+        } else {
+          nextTick(() => updateVisibleItems(false))
+        }
       } else {
         // Fixed-size mode: check if visible items reordered or changed
         let visibleChanged = false
@@ -1317,7 +1339,15 @@ watch(items, (newArr) => {
           }
         }
         if (visibleChanged) {
-          nextTick(() => updateVisibleItems(true))
+          _reorderTransitionActive = true
+          scrollElement.value?.classList.add('reorder-transition')
+          nextTick(() => {
+            updateVisibleItems(false)
+            setTimeout(() => {
+              _reorderTransitionActive = false
+              scrollElement.value?.classList.remove('reorder-transition')
+            }, 200)
+          })
         }
       }
       return
@@ -1352,6 +1382,20 @@ watch(items, (newArr) => {
       handlePrepend(prependCount)
       return
     }
+  }
+
+  // Same length but different key order — reorder, not a replacement
+  if (newLen === oldLen) {
+    _reorderTransitionActive = true
+    scrollElement.value?.classList.add('reorder-transition')
+    nextTick(() => {
+      updateVisibleItems(false)
+      setTimeout(() => {
+        _reorderTransitionActive = false
+        scrollElement.value?.classList.remove('reorder-transition')
+      }, 200)
+    })
+    return
   }
 
   // Default: full update
@@ -1523,6 +1567,10 @@ defineExpose({
 
 .vue-recycle-scroller.ready .vue-recycle-scroller__item-view {
   transition: none;
+}
+
+.vue-recycle-scroller.ready.reorder-transition .vue-recycle-scroller__item-view {
+  transition: transform 200ms ease-out;
 }
 
 .vue-recycle-scroller.page-mode {

@@ -36,6 +36,9 @@
     <router-link :to="{ name: 'skeleton' }">
       Skeleton demo
     </router-link>
+    <router-link :to="{ name: 'chat-reorder' }">
+      Chat reorder
+    </router-link>
   </nav>
   <router-view />
 </template>

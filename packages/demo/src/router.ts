@@ -22,6 +22,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/grid', name: 'grid', component: GridDemo },
   { path: '/grid-scroller', name: 'grid-scroller', component: GridScrollerDemo },
   { path: '/skeleton', name: 'skeleton', component: () => import('./components/SkeletonDemo.vue') },
+  { path: '/chat-reorder', name: 'chat-reorder', component: () => import('./components/ChatListReorderDemo.vue') },
 ]
 
 const router = createRouter({
