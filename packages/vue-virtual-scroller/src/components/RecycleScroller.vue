@@ -1364,6 +1364,11 @@ watch(items, (newArr) => {
         // Pure append — old items at same positions
         nextTick(() => {
           updateVisibleItems(false)
+          // Schedule sortViews to reconcile pool after append
+          // (updateVisibleItems(false) skips this, but appends can leave stale views)
+          sortViewsAttempts = 0
+          if (sortTimer) clearTimeout(sortTimer)
+          sortTimer = window.setTimeout(sortViews, updateInterval + 300)
           if (stickToBottom && isAtBottom.value) {
             nextTick(() => scrollToBottom())
           }
