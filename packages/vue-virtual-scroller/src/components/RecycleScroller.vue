@@ -330,8 +330,6 @@ let fallbackResizeHandler: (() => void) | null = null
 // prevents handleScroll from setting isAtBottom = false during the scroll.
 let _stickyScrollPending = false
 
-// When true, a data-driven reorder is in progress and CSS transitions are active.
-let _reorderTransitionActive = false
 
 /** Parse threshold value into pixels. Accepts:
  *  - number 0-1: percentage of container height (0.05 = 5%)
@@ -1314,12 +1312,10 @@ watch(items, (newArr) => {
           }
         }
         if (reordered) {
-          _reorderTransitionActive = true
           scrollElement.value?.classList.add('reorder-transition')
           nextTick(() => {
             updateVisibleItems(false)
             setTimeout(() => {
-              _reorderTransitionActive = false
               scrollElement.value?.classList.remove('reorder-transition')
             }, 200)
           })
@@ -1339,12 +1335,10 @@ watch(items, (newArr) => {
           }
         }
         if (visibleChanged) {
-          _reorderTransitionActive = true
           scrollElement.value?.classList.add('reorder-transition')
           nextTick(() => {
             updateVisibleItems(false)
             setTimeout(() => {
-              _reorderTransitionActive = false
               scrollElement.value?.classList.remove('reorder-transition')
             }, 200)
           })
@@ -1391,12 +1385,10 @@ watch(items, (newArr) => {
 
   // Same length but different key order — reorder, not a replacement
   if (newLen === oldLen) {
-    _reorderTransitionActive = true
     scrollElement.value?.classList.add('reorder-transition')
     nextTick(() => {
       updateVisibleItems(false)
       setTimeout(() => {
-        _reorderTransitionActive = false
         scrollElement.value?.classList.remove('reorder-transition')
       }, 200)
     })
@@ -1558,11 +1550,11 @@ defineExpose({
   contain: layout style paint;
 }
 
-.vue-recycle-scroller.ready.direction-vertical:not(.grid-mode) :deep(.vue-recycle-scroller__item-view) {
+.vue-recycle-scroller.direction-vertical:not(.grid-mode) :deep(.vue-recycle-scroller__item-view) {
   width: 100%;
 }
 
-.vue-recycle-scroller.ready.direction-horizontal:not(.grid-mode) :deep(.vue-recycle-scroller__item-view) {
+.vue-recycle-scroller.direction-horizontal:not(.grid-mode) :deep(.vue-recycle-scroller__item-view) {
   height: 100%;
 }
 
