@@ -1444,18 +1444,7 @@ onMounted(() => {
   const el = scrollElement.value
   const size = el ? (direction === 'vertical' ? el.clientHeight : el.clientWidth) : 0
 
-  console.log('[RecycleScroller] onMounted', {
-    hasEl: !!el,
-    clientHeight: el?.clientHeight,
-    clientWidth: el?.clientWidth,
-    size,
-    itemCount: items.value.length,
-    ready: ready.value,
-    direction,
-  })
-
   if (size > 0) {
-    console.log('[RecycleScroller] Tier 1: sync measurement, going ready immediately')
     ready.value = true
     updateVisibleItems(true)
     handleResize()
@@ -1469,7 +1458,6 @@ onMounted(() => {
       isAtBottom.value = true
     }
   } else {
-    console.log('[RecycleScroller] Tier 2: 0 size, prerendering then waiting for RAF')
     // Tier 2: Container has 0 size (flex, v-if, late layout).
     // Trigger the prerender branch NOW so items are visible immediately
     // instead of waiting for the RAF (which sets ready=true first,
@@ -1481,11 +1469,6 @@ onMounted(() => {
     // Wait for layout to complete, then transition to real measurements.
     nextTick(() => {
       requestAnimationFrame(() => {
-        console.log('[RecycleScroller] RAF fired', {
-          clientHeight: scrollElement.value?.clientHeight,
-          clientWidth: scrollElement.value?.clientWidth,
-          itemCount: items.value.length,
-        })
         ready.value = true
         updateVisibleItems(true)
         handleResize()
