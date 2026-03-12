@@ -195,13 +195,18 @@ defineExpose({
   width: 100%;
   height: 100%;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.vue-grid-scroller :deep(.vue-recycle-scroller-wrapper) {
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .vue-grid-scroller :deep(.vue-recycle-scroller) {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 </style>

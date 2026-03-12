@@ -1438,26 +1438,69 @@ onMounted(() => {
     window.addEventListener('resize', fallbackResizeHandler)
   }
 
-  // Wait for Vue DOM flush (nextTick), then defer to RAF so the browser
-  // has completed style/layout calculations before we read clientHeight.
-  // This prevents measuring 0px in flex containers behind v-if transitions.
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      ready.value = true
-      updateVisibleItems(true)
-      handleResize()
+  // Tier 1: Try synchronous measurement. Reading clientHeight forces a
+  // layout reflow — if the container already has dimensions, skip the
+  // prerender phase and go straight to ready with real measurements.
+  const el = scrollElement.value
+  const size = el ? (direction === 'vertical' ? el.clientHeight : el.clientWidth) : 0
 
-      if (initialScrollPercent !== null) {
-        scrollToPercent(initialScrollPercent)
-      } else if (startAtBottom) {
-        scrollToBottom()
-      }
-
-      if (stickToBottom) {
-        isAtBottom.value = true
-      }
-    })
+  console.log('[RecycleScroller] onMounted', {
+    hasEl: !!el,
+    clientHeight: el?.clientHeight,
+    clientWidth: el?.clientWidth,
+    size,
+    itemCount: items.value.length,
+    ready: ready.value,
+    direction,
   })
+
+  if (size > 0) {
+    console.log('[RecycleScroller] Tier 1: sync measurement, going ready immediately')
+    ready.value = true
+    updateVisibleItems(true)
+    handleResize()
+
+    if (initialScrollPercent !== null) {
+      scrollToPercent(initialScrollPercent)
+    } else if (startAtBottom) {
+      scrollToBottom()
+    }
+    if (stickToBottom) {
+      isAtBottom.value = true
+    }
+  } else {
+    console.log('[RecycleScroller] Tier 2: 0 size, prerendering then waiting for RAF')
+    // Tier 2: Container has 0 size (flex, v-if, late layout).
+    // Trigger the prerender branch NOW so items are visible immediately
+    // instead of waiting for the RAF (which sets ready=true first,
+    // bypassing the prerender path entirely).
+    if (items.value.length > 0) {
+      updateVisibleItems(true)
+    }
+
+    // Wait for layout to complete, then transition to real measurements.
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        console.log('[RecycleScroller] RAF fired', {
+          clientHeight: scrollElement.value?.clientHeight,
+          clientWidth: scrollElement.value?.clientWidth,
+          itemCount: items.value.length,
+        })
+        ready.value = true
+        updateVisibleItems(true)
+        handleResize()
+
+        if (initialScrollPercent !== null) {
+          scrollToPercent(initialScrollPercent)
+        } else if (startAtBottom) {
+          scrollToBottom()
+        }
+        if (stickToBottom) {
+          isAtBottom.value = true
+        }
+      })
+    })
+  }
 })
 
 onUnmounted(() => {
