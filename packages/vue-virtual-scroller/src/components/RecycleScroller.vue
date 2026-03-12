@@ -741,7 +741,7 @@ const updateVisibleItems = (itemsChanged = false, checkPositionDiff = false) => 
     nextTotalSize = 0
   } else if (!ready.value) {
     newStartIndex = 0
-    newEndIndex = Math.min(prerender, count)
+    newEndIndex = prerender > 0 ? Math.min(prerender, count) : Math.min(20, count)
     visibleStartIndex = newStartIndex
     visibleEndIndex = newEndIndex
     nextTotalSize = itemSize !== null
