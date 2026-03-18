@@ -112,6 +112,7 @@
 
 <script setup lang="ts" generic="T extends Record<string, any>">
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, shallowReactive, markRaw, useTemplateRef, watch, type CSSProperties } from 'vue'
+import { useResizeObserver } from '@vueuse/core'
 import ItemView from './ItemView.vue'
 import ScrollbarTrack from './ScrollbarTrack.vue'
 import { useCustomScrollbar } from '../composables/useCustomScrollbar'
@@ -323,8 +324,6 @@ let scrollEndTimeout = 0
 let sortTimer = 0
 let lastUpdateScrollPosition = 0
 let listenerTarget: EventTarget | null = null
-let resizeObserver: ResizeObserver | null = null
-let fallbackResizeHandler: (() => void) | null = null
 
 // When true, the scroller is programmatically scrolling to bottom —
 // prevents handleScroll from setting isAtBottom = false during the scroll.
@@ -953,15 +952,32 @@ const handleResize = () => {
 
   emit('resize', { width: w, height: h })
 
-  if (ready.value) {
-    if (resizeRafId) cancelAnimationFrame(resizeRafId)
-    resizeRafId = requestAnimationFrame(() => {
-      resizeRafId = 0
-      updateVisibleItems(false)
-    })
+  // First non-zero size → transition to ready
+  if (!ready.value) {
+    const size = direction === 'vertical' ? h : w
+    if (size > 0) {
+      ready.value = true
+      updateVisibleItems(true)
+      if (initialScrollPercent !== null) scrollToPercent(initialScrollPercent)
+      else if (startAtBottom) scrollToBottom()
+      if (stickToBottom) isAtBottom.value = true
+    }
+    scrollbar?.onResize()
+    return
   }
+
+  // Subsequent resizes after ready
+  if (resizeRafId) cancelAnimationFrame(resizeRafId)
+  resizeRafId = requestAnimationFrame(() => {
+    resizeRafId = 0
+    updateVisibleItems(false)
+  })
   scrollbar?.onResize()
 }
+
+// Auto-observes scrollElement, fires on initial .observe(), cleans up on unmount.
+// When container gets dimensions → handleResize transitions to ready.
+useResizeObserver(scrollElement, () => handleResize())
 
 let nonContinuousRetries = 0
 
@@ -1203,6 +1219,18 @@ const getViewStyle = (view: InternalView): CSSProperties => {
     visibility: view.nr.used ? 'visible' : 'hidden'
   }
 
+  // Ensure views fill their allocated space — prevents visual gaps when
+  // content (skeletons, loading states) is shorter than the item size.
+  // Grid mode already sets explicit dimensions below, so skip there.
+  if (view.nr.used && gridItems <= 1 && !gridViewSize) {
+    const allocatedSize = getItemSizeAt(view.nr.index)
+    if (itemSize !== null) {
+      style[direction === 'vertical' ? 'height' : 'width'] = `${allocatedSize}px`
+    } else {
+      style[direction === 'vertical' ? 'minHeight' : 'minWidth'] = `${allocatedSize}px`
+    }
+  }
+
   if (disableTransform) {
     if (direction === 'vertical') {
       style.top = `${view.position}px`
@@ -1218,7 +1246,7 @@ const getViewStyle = (view: InternalView): CSSProperties => {
     style.transform = `${mainTransform}(${view.position}px) ${crossTransform}(${view.offset}px)`
   }
 
-  if (gridItems > 1) {
+  if (gridViewSize > 0) {
     // Use gridViewSize/gridViewSecondarySize for the actual content dimensions
     // when provided (set by GridScroller). These exclude gaps and may be stretched
     // to fill the container. Fall back to stride-based sizes for backward compat.
@@ -1426,77 +1454,35 @@ watch([
 onMounted(() => {
   applyPageMode()
 
-  if (typeof ResizeObserver !== 'undefined' && scrollElement.value) {
-    resizeObserver = new ResizeObserver(() => {
-      handleResize()
-    })
-    resizeObserver.observe(scrollElement.value)
-  } else {
-    fallbackResizeHandler = () => {
-      handleResize()
-    }
-    window.addEventListener('resize', fallbackResizeHandler)
+  // useResizeObserver (declared at setup level) handles observer setup.
+  // It fires on initial .observe() → handleResize transitions to ready
+  // when container gets non-zero dimensions.
+
+  // Prerender immediately so users see content (not blank)
+  if (items.value.length > 0) {
+    updateVisibleItems(true)
   }
 
-  // Tier 1: Try synchronous measurement. Reading clientHeight forces a
-  // layout reflow — if the container already has dimensions, skip the
-  // prerender phase and go straight to ready with real measurements.
+  // Sync fast path: if container already has dimensions, go ready now
+  // (avoids 1-frame delay waiting for async ResizeObserver callback)
   const el = scrollElement.value
   const size = el ? (direction === 'vertical' ? el.clientHeight : el.clientWidth) : 0
-
   if (size > 0) {
     ready.value = true
     updateVisibleItems(true)
     handleResize()
-
-    if (initialScrollPercent !== null) {
-      scrollToPercent(initialScrollPercent)
-    } else if (startAtBottom) {
-      scrollToBottom()
-    }
-    if (stickToBottom) {
-      isAtBottom.value = true
-    }
-  } else {
-    // Tier 2: Container has 0 size (flex, v-if, late layout).
-    // Trigger the prerender branch NOW so items are visible immediately
-    // instead of waiting for the RAF (which sets ready=true first,
-    // bypassing the prerender path entirely).
-    if (items.value.length > 0) {
-      updateVisibleItems(true)
-    }
-
-    // Wait for layout to complete, then transition to real measurements.
-    nextTick(() => {
-      requestAnimationFrame(() => {
-        ready.value = true
-        updateVisibleItems(true)
-        handleResize()
-
-        if (initialScrollPercent !== null) {
-          scrollToPercent(initialScrollPercent)
-        } else if (startAtBottom) {
-          scrollToBottom()
-        }
-        if (stickToBottom) {
-          isAtBottom.value = true
-        }
-      })
-    })
+    if (initialScrollPercent !== null) scrollToPercent(initialScrollPercent)
+    else if (startAtBottom) scrollToBottom()
+    if (stickToBottom) isAtBottom.value = true
   }
+  // Otherwise: ResizeObserver fires when container gets dimensions
+  // → handleResize detects !ready + non-zero size → sets ready
 })
 
 onUnmounted(() => {
   scrollbar?.destroy()
   removeListeners()
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-    resizeObserver = null
-  }
-  if (fallbackResizeHandler) {
-    window.removeEventListener('resize', fallbackResizeHandler)
-    fallbackResizeHandler = null
-  }
+  // useResizeObserver cleans up automatically via onScopeDispose
   if (resizeRafId) cancelAnimationFrame(resizeRafId)
   if (updateTimeout) clearTimeout(updateTimeout)
   if (refreshTimeout) clearTimeout(refreshTimeout)
